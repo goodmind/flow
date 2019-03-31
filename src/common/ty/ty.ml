@@ -18,9 +18,11 @@ type t =
   | Top | Bot
   | Void | Null
   | Num of string option
+  | BigNum of string option
   | Str of string option
   | Bool of bool option
   | NumLit of string
+  | BigNumLit of string
   | StrLit of string
   | BoolLit of bool
   | Fun of fun_t
@@ -224,7 +226,7 @@ let rec mk_exact ty =
   | Mu (i, t) -> Mu (i, mk_exact t)
   (* Not applicable *)
   | Any _ | Top | Bot | Void | Null
-  | Num _ | Str _ | Bool _ | NumLit _ | StrLit _ | BoolLit _
+  | Num _ | BigNum _ | Str _ | Bool _ | NumLit _ | BigNumLit _ | StrLit _ | BoolLit _
   | Fun _ | Arr _ | Tup _ -> ty
   (* Do not nest $Exact *)
   | Utility (Exact _) -> ty

@@ -206,6 +206,7 @@ module rec TypeTerm : sig
 
   and def_t =
     | NumT of number_literal literal
+    | BigNumT of bigint_literal literal
     | StrT of string literal
     | BoolT of bool option
     | EmptyT
@@ -224,6 +225,8 @@ module rec TypeTerm : sig
     (* matches exactly a given number literal, for some definition of "exactly"
        when it comes to floats... *)
     | SingletonNumT of number_literal
+    (* matches exactly a given bigint literal *)
+    | SingletonBigNumT of bigint_literal
     (* singleton bool, matches exactly a given boolean literal *)
     | SingletonBoolT of bool
     (* A subset of StrT that represents a set of characters,
@@ -411,6 +414,7 @@ module rec TypeTerm : sig
     | UnaryMinusT of reason * t
 
     | AssertArithmeticOperandT of reason
+    | AssertBigIntArithmeticOperandT of reason
     | AssertBinaryInLHST of reason
     | AssertBinaryInRHST of reason
     | AssertForInRHST of reason
@@ -721,10 +725,12 @@ module rec TypeTerm : sig
     | SingletonBoolP of ALoc.t * bool (* true or false *)
     | SingletonStrP of ALoc.t * bool * string (* string literal *)
     | SingletonNumP of ALoc.t * bool * number_literal
+    | SingletonBigNumP of ALoc.t * bool * bigint_literal
 
     | BoolP (* boolean *)
     | FunP (* function *)
     | NumP (* number *)
+    | BigNumP (* bigint *)
     | ObjP (* object *)
     | StrP (* string *)
     | SymbolP (* symbol *)
@@ -753,6 +759,8 @@ module rec TypeTerm : sig
     | AnyLiteral
 
   and number_literal = (float * string)
+
+  and bigint_literal = (float (* Warning! Might lose precision! *) * string)
 
   and mixed_flavor =
     | Mixed_everything
@@ -1180,6 +1188,7 @@ and Enum : sig
   type t =
     | Str of string
     | Num of TypeTerm.number_literal
+    | BigNum of TypeTerm.bigint_literal
     | Bool of bool
     | Void
     | Null
@@ -1191,6 +1200,7 @@ end = struct
   type t =
     | Str of string
     | Num of TypeTerm.number_literal
+    | BigNum of TypeTerm.bigint_literal
     | Bool of bool
     | Void
     | Null
@@ -1573,6 +1583,8 @@ end = struct
     | DefT (_, _, StrT (Literal (_, lit))) -> Some (Enum.Str lit)
     | DefT (_, _, SingletonNumT lit)
     | DefT (_, _, NumT (Literal (_, lit))) -> Some (Enum.Num lit)
+    | DefT (_, _, SingletonBigNumT lit)
+    | DefT (_, _, BigNumT (Literal (_, lit))) -> Some (Enum.BigNum lit)
     | DefT (_, _, SingletonBoolT lit)
     | DefT (_, _, BoolT (Some lit)) -> Some (Enum.Bool lit)
     | DefT (_, _, VoidT) -> Some (Enum.Void)
@@ -1583,6 +1595,7 @@ end = struct
   let is_base = TypeTerm.(function
     | DefT (_, _, SingletonStrT _)
     | DefT (_, _, SingletonNumT _)
+    | DefT (_, _, SingletonBigNumT _)
     | DefT (_, _, SingletonBoolT _)
     | DefT (_, _, VoidT)
     | DefT (_, _, NullT)
@@ -2216,6 +2229,7 @@ end = struct
     | AndT (reason, _, _) -> reason
     | ArrRestT (_, reason, _, _) -> reason
     | AssertArithmeticOperandT reason -> reason
+    | AssertBigIntArithmeticOperandT reason -> reason
     | AssertBinaryInLHST reason -> reason
     | AssertBinaryInRHST reason -> reason
     | AssertForInRHST reason -> reason
@@ -2371,6 +2385,7 @@ end = struct
     | AndT (reason, t1, t2) -> AndT (f reason, t1, t2)
     | ArrRestT (use_op, reason, i, t) -> ArrRestT (use_op, f reason, i, t)
     | AssertArithmeticOperandT reason -> AssertArithmeticOperandT (f reason)
+    | AssertBigIntArithmeticOperandT reason -> AssertBigIntArithmeticOperandT (f reason)
     | AssertBinaryInLHST reason -> AssertBinaryInLHST (f reason)
     | AssertBinaryInRHST reason -> AssertBinaryInRHST (f reason)
     | AssertForInRHST reason -> AssertForInRHST (f reason)
@@ -2546,6 +2561,7 @@ end = struct
   | ComparatorT (_, _, _)
   | UnaryMinusT (_, _)
   | AssertArithmeticOperandT (_)
+  | AssertBigIntArithmeticOperandT (_)
   | AssertBinaryInLHST (_)
   | AssertBinaryInRHST (_)
   | AssertForInRHST (_)
@@ -2769,6 +2785,8 @@ end = struct
     match t1, t2 with
     | DefT (_, ltrust, NumT _), DefT (_, rtrust, NumT _)
     | DefT (_, ltrust, SingletonNumT _), DefT (_, rtrust, NumT _)
+    | DefT (_, ltrust, BigNumT _), DefT (_, rtrust, BigNumT _)
+    | DefT (_, ltrust, SingletonBigNumT _), DefT (_, rtrust, BigNumT _)
     | DefT (_, ltrust, StrT _), DefT (_, rtrust, StrT _)
     | DefT (_, ltrust, SingletonStrT _), DefT (_, rtrust, StrT _)
     | DefT (_, ltrust, BoolT _), DefT (_, rtrust, BoolT _)
@@ -2782,6 +2800,7 @@ end = struct
     | _, DefT (_, rtrust, MixedT _) -> not trust_checked || Trust.is_tainted rtrust
     | DefT (_, ltrust, StrT actual), DefT (_, rtrust, SingletonStrT expected) -> Trust.subtype_trust ltrust rtrust && literal_eq expected actual
     | DefT (_, ltrust, NumT actual), DefT (_, rtrust, SingletonNumT expected) -> Trust.subtype_trust ltrust rtrust && number_literal_eq expected actual
+    | DefT (_, ltrust, BigNumT actual), DefT (_, rtrust, SingletonBigNumT expected) -> Trust.subtype_trust ltrust rtrust && number_literal_eq expected actual
     | DefT (_, ltrust, BoolT actual), DefT (_, rtrust, SingletonBoolT expected) -> Trust.subtype_trust ltrust rtrust && boolean_literal_eq expected actual
     | _ -> reasonless_eq t1 t2
 end
@@ -2830,6 +2849,11 @@ end
 module NumT = Primitive (struct
   let desc = RNumber
   let make r trust = DefT (r, trust, NumT AnyLiteral)
+end)
+
+module BigNumT = Primitive (struct
+  let desc = RBigInt
+  let make r trust = DefT (r, trust, BigNumT AnyLiteral)
 end)
 
 module StrT = Primitive (struct
@@ -2943,6 +2967,7 @@ module Locationless = struct
     let t = P.make (locationless_reason P.desc)
   end
   module NumT = LocationLess (NumT)
+  module BigNumT = LocationLess (BigNumT)
   module StrT = LocationLess (StrT)
   module BoolT = LocationLess (BoolT)
   module MixedT = LocationLess (MixedT)
@@ -3100,11 +3125,13 @@ let string_of_def_ctor = function
   | MixedT _ -> "MixedT"
   | NullT -> "NullT"
   | NumT _ -> "NumT"
+  | BigNumT _ -> "BigNumT"
   | ObjT _ -> "ObjT"
   | PolyT _ -> "PolyT"
   | ReactAbstractComponentT _ -> "ReactAbstractComponentT"
   | SingletonBoolT _ -> "SingletonBoolT"
   | SingletonNumT _ -> "SingletonNumT"
+  | SingletonBigNumT _ -> "SingletonBigNumT"
   | SingletonStrT _ -> "SingletonStrT"
   | StrT _ -> "StrT"
   | TypeT _ -> "TypeT"
@@ -3214,6 +3241,7 @@ let string_of_use_ctor = function
   | AndT _ -> "AndT"
   | ArrRestT _ -> "ArrRestT"
   | AssertArithmeticOperandT _ -> "AssertArithmeticOperandT"
+  | AssertBigIntArithmeticOperandT _ -> "AssertBigIntArithmeticOperandT"
   | AssertBinaryInLHST _ -> "AssertBinaryInLHST"
   | AssertBinaryInRHST _ -> "AssertBinaryInRHST"
   | AssertForInRHST _ -> "AssertForInRHST"
@@ -3346,12 +3374,14 @@ let rec string_of_predicate = function
   | SingletonBoolP (_, true) -> "true"
   | SingletonStrP (_, _, str) -> spf "string `%s`" str
   | SingletonNumP (_, _, (_,raw)) -> spf "number `%s`" raw
+  | SingletonBigNumP (_, _, (_,raw)) -> spf "bigint `%s`" raw
 
   (* typeof *)
   | VoidP -> "undefined"
   | BoolP -> "boolean"
   | StrP -> "string"
   | NumP -> "number"
+  | BigNumP -> "bigint"
   | FunP -> "function"
   | ObjP -> "object"
   | SymbolP -> "symbol"

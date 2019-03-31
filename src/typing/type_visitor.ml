@@ -132,6 +132,7 @@ class ['a] t = object(self)
 
   method def_type cx pole acc = function
   | NumT _
+  | BigNumT _
   | StrT _
   | BoolT _
   | EmptyT
@@ -163,6 +164,7 @@ class ['a] t = object(self)
 
   | SingletonStrT _
   | SingletonNumT _
+  | SingletonBigNumT _
   | SingletonBoolT _ -> acc
 
   | TypeT (_, t) -> self#type_ cx pole acc t
@@ -218,9 +220,11 @@ class ['a] t = object(self)
   | SingletonBoolP _ -> acc
   | SingletonStrP _ -> acc
   | SingletonNumP _ -> acc
+  | SingletonBigNumP _ -> acc
   | BoolP -> acc
   | FunP -> acc
   | NumP -> acc
+  | BigNumP -> acc
   | ObjP -> acc
   | StrP -> acc
   | SymbolP -> acc
@@ -354,6 +358,7 @@ class ['a] t = object(self)
   | UnaryMinusT (_, t) -> self#type_ cx pole_TODO acc t
 
   | AssertArithmeticOperandT _
+  | AssertBigIntArithmeticOperandT _
   | AssertBinaryInLHST _
   | AssertBinaryInRHST _
   | AssertForInRHST _ -> acc

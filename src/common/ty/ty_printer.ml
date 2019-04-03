@@ -225,12 +225,19 @@ let type_ ?(size=5000) ?(with_comments=true) t =
       | Get t -> fuse [
           Atom "get"; space;
           to_key key;
+          Atom "(";
+          Atom ")";
+          Atom ":";
           type_ ~depth t;
         ]
 
       | Set t -> fuse [
           Atom "set"; space;
           to_key key;
+          Atom "(";
+          type_ ~depth t;
+          Atom ")";
+          Atom ":";
           type_ ~depth t;
         ]
       end

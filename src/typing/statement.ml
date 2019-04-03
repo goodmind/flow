@@ -2771,7 +2771,10 @@ and variable cx kind ?if_uninitialized (vdecl_loc, vdecl) = Ast.Statement.(
         | Ast.Type.Missing _ -> false in
         let init = match init with
           | Some ((rhs_loc, _) as expr) ->
-            let (_, rhs_t), _ as rhs_ast = expression cx expr in
+            let (_, rhs_t), _ as rhs_ast = match kind with
+              | VariableDeclaration.Const -> expression ~is_const:true cx expr
+              | _ -> expression cx expr
+            in
             (**
              * Const and let variables are not declared during evaluation of
              * their initializer expressions.
@@ -2867,8 +2870,8 @@ and expression_or_spread_list cx undef_loc = Ast.Expression.(
 )
 
 (* can raise Abnormal.(Exn (Stmt _, _)) *)
-and expression ?(is_cond=false) cx (loc, e) : (ALoc.t, ALoc.t * Type.t) Ast.Expression.t =
-  let (_, t), _ as e = expression_ ~is_cond cx loc e in
+and expression ?(is_cond=false) ?(is_const=false) cx (loc, e) : (ALoc.t, ALoc.t * Type.t) Ast.Expression.t =
+  let (_, t), _ as e = expression_ ~is_cond ~is_const cx loc e in
   Type_table.set (Context.type_table cx) loc t;
   e
 
@@ -2881,12 +2884,12 @@ and this_ cx loc = Ast.Expression.(
 and super_ cx loc =
   Env.var_ref cx (internal_name "super") loc
 
-and expression_ ~is_cond cx loc e : (ALoc.t, ALoc.t * Type.t) Ast.Expression.t =
+and expression_ ~is_cond ~is_const cx loc e : (ALoc.t, ALoc.t * Type.t) Ast.Expression.t =
   let make_trust = Context.trust_constructor cx in
   let ex = (loc, e) in Ast.Expression.(match e with
 
   | Ast.Expression.Literal lit ->
-      (loc, literal cx loc lit), Ast.Expression.Literal lit
+      (loc, literal ~is_const cx loc lit), Ast.Expression.Literal lit
 
   (* Treat the identifier `undefined` as an annotation for error reporting
    * purposes. Like we do with other literals. Otherwise we end up pointing to
@@ -4273,7 +4276,7 @@ and identifier cx { Ast.Identifier.name; comments= _ } loc =
   t
 
 (* traverse a literal expression, return result type *)
-and literal cx loc lit =
+and literal ?(is_const=false) cx loc lit =
   let make_trust = Context.trust_constructor cx in
   Ast.Literal.(match lit.Ast.Literal.value with
   | String s -> begin
@@ -4291,17 +4294,29 @@ and literal cx loc lit =
         then Literal (None, s), RString
         else AnyLiteral, RLongStringLit (max_literal_length)
       in
-      DefT (annot_reason (mk_reason r_desc loc), make_trust (), StrT lit)
+      let lit_type = match lit with
+        | Literal (_, s) when is_const -> SingletonStrT s
+        | _ -> StrT lit 
+      in
+      DefT (annot_reason (mk_reason r_desc loc), make_trust (), lit_type)
   end
 
   | Boolean b ->
-      DefT (annot_reason (mk_reason RBoolean loc), make_trust (), BoolT (Some b))
+      let lit_type = if is_const
+        then SingletonBoolT b
+        else BoolT (Some b)
+      in
+      DefT (annot_reason (mk_reason RBoolean loc), make_trust (), lit_type)
 
   | Null ->
       NullT.at loc |> with_trust make_trust
 
   | Number f ->
-      DefT (annot_reason (mk_reason RNumber loc), make_trust (), NumT (Literal (None, (f, lit.raw))))
+      let lit_type = if is_const
+        then SingletonNumT (f, lit.raw)
+        else NumT (Literal (None, (f, lit.raw)))
+      in
+      DefT (annot_reason (mk_reason RNumber loc), make_trust (), lit_type)
 
   | BigInt f ->
       DefT (annot_reason (mk_reason RBigInt loc), make_trust (), BigNumT (Literal (None, (f, lit.raw))))

@@ -1460,6 +1460,7 @@ end = struct
     match d with
     | T.NonMaybeType -> return (Ty.Utility (Ty.NonMaybeType ty))
     | T.ReadOnlyType -> return (Ty.Utility (Ty.ReadOnly ty))
+    | T.RequiredType -> return (Ty.Utility (Ty.Required ty))
     | T.ValuesType -> return (Ty.Utility (Ty.Values ty))
     | T.ElementType t' ->
       type__ ~env t' >>| fun ty' -> Ty.Utility (Ty.ElementType (ty, ty'))

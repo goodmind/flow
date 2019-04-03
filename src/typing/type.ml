@@ -1052,6 +1052,7 @@ module rec TypeTerm : sig
   | ElementType of t
   | Bind of t
   | ReadOnlyType
+  | RequiredType
   | SpreadType of Object.Spread.target * t list
   | RestType of Object.Rest.merge_mode * t
   | ValuesType
@@ -1994,7 +1995,7 @@ and Object : sig
   (* A union type resolves to a resolved spread with more than one element *)
   and resolved = slice Nel.t
 
-  and slice = reason * props * dict * TypeTerm.flags
+  and slice = reason * props * dict * TypeTerm.flags * Properties.t
 
   and props = prop SMap.t
   and prop = TypeTerm.t * bool (* own *)
@@ -2036,6 +2037,7 @@ and Object : sig
 
   type tool =
     | ReadOnly
+    | Required
     | Spread of Spread.target * Spread.state
     | Rest of Rest.merge_mode * Rest.state
     | ReactConfig of ReactConfig.state

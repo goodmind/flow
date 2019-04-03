@@ -238,6 +238,7 @@ class ['a] t = object(self)
   | PropertyType _
   | ValuesType
   | ReadOnlyType
+  | RequiredType
   | ReactElementPropsType
   | ReactElementConfigType
   | ReactElementRefType
@@ -527,7 +528,6 @@ class ['a] t = object(self)
       let acc = self#react_create_class_knot cx acc knot in
       let acc = self#type_ cx pole_TODO acc tout in
       acc)
-
   | ObjKitT (_, _, resolve_tool, tool, tout) ->
     let open Object in
     let acc =
@@ -540,6 +540,7 @@ class ['a] t = object(self)
     in
     let acc = match tool with
       | ReadOnly -> acc
+      | Required -> acc
       | Spread (_, state) ->
         let open Object.Spread in
         let { todo_rev; acc = object_spread_acc } = state in
@@ -922,7 +923,7 @@ class ['a] t = object(self)
       let acc = Nel.fold_left (Nel.fold_left (self#object_kit_slice cx)) acc rs in
       acc
 
-  method private object_kit_slice cx acc (_, props, dict, _) =
+  method private object_kit_slice cx acc (_, props, dict, _, _) =
     let acc = self#smap (fun acc (t, _) -> self#type_ cx pole_TODO acc t) acc props in
     let acc = self#opt (self#dict_type cx pole_TODO) acc dict in
     acc

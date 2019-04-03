@@ -7446,6 +7446,9 @@ and eval_destructor cx ~trace use_op reason t d tout = match t with
   | ReadOnlyType ->
     let open Object in
     ObjKitT (use_op, reason, Resolve (Next), ReadOnly, tout)
+  | RequiredType -> 
+    let open Object in
+    ObjKitT (use_op, reason, Resolve (Next), Required, tout)
   | ValuesType -> GetValuesT (reason, tout)
   | CallType args ->
     let args = Core_list.map ~f:(fun arg -> Arg arg) args in
@@ -11060,7 +11063,7 @@ and object_kit =
     let open Object.Spread in
 
     (* Compute spread result: slice * slice -> slice *)
-    let spread2 reason (r1, props1, dict1, flags1) (r2, props2, dict2, flags2) =
+    let spread2 reason (r1, props1, dict1, flags1, raw_props1) (r2, props2, dict2, flags2, _) =
       let union t1 t2 = UnionT (reason, UnionRep.make t1 t2 []) in
       let merge_props (t1, own1) (t2, own2) =
         let t1, opt1 = match t1 with OptionalT (_, t) -> t, true | _ -> t1, false in
@@ -11114,7 +11117,8 @@ and object_kit =
           Obj_type.sealed_in_op reason flags1.sealed &&
           Obj_type.sealed_in_op reason flags2.sealed;
       } in
-      reason, props, dict, flags
+      let raw_props = raw_props1 in
+      reason, props, dict, flags, raw_props
     in
 
     let spread reason = function
@@ -11122,7 +11126,7 @@ and object_kit =
       | x0, x1::xs -> merge (spread2 reason) x0 (x1, xs)
     in
 
-    let mk_object cx reason target (r, props, dict, flags) =
+    let mk_object cx reason target (r, props, dict, flags, _) =
       let props = SMap.map (fun (t, own) ->
         (* Spread only copies over own properties. If `not own`, then the property
            might be on a proto object instead, so make the result optional. *)
@@ -11152,7 +11156,7 @@ and object_kit =
     fun options state cx trace use_op reason tout x ->
       let reason = replace_reason invalidate_rtype_alias reason in
       let {todo_rev; acc} = state in
-      Nel.iter (fun (r, _, _, {exact; _}) ->
+      Nel.iter (fun (r, _, _, {exact; _}, _) ->
         match options with
         | Annot { make_exact } when make_exact && not exact ->
           add_output cx ~trace (Error_message.
@@ -11206,8 +11210,8 @@ and object_kit =
      * it is not an own property of props2.
      *)
     let rest cx trace ~use_op reason merge_mode
-      (r1, props1, dict1, flags1)
-      (r2, props2, dict2, flags2) =
+      (r1, props1, dict1, flags1, _)
+      (r2, props2, dict2, flags2, _) =
       let props = SMap.merge (fun k p1 p2 ->
         match merge_mode, get_prop r1 p1 dict1, get_prop r2 p2 dict2, flags2.exact with
         (* If the object we are using to subtract has an optional property, non-own
@@ -11385,7 +11389,7 @@ and object_kit =
     let polarity = Positive in
 
     let mk_read_only_object cx reason slice =
-      let (r, props, dict, flags) = slice in
+      let (r, props, dict, flags, _) = slice in
 
       let props = SMap.map (fun (t, _) -> Field (None, t, polarity)) props in
       let dict = Option.map dict (fun dict -> { dict with dict_polarity = polarity }) in
@@ -11400,6 +11404,36 @@ and object_kit =
       let t = match Nel.map (mk_read_only_object cx reason) x with
         | (t, []) -> t
         | (t0, t1::ts) -> UnionT (reason, UnionRep.make t0 t1 ts)
+      in
+      (* Intentional UnknownUse here. *)
+      rec_flow_t cx trace (t, tout)
+  in
+
+  let object_required =
+    let mk_required_object cx reason slice =
+      let (r, _, dict, flags, props) = slice in
+
+      let props = SMap.map (fun p -> 
+        match p with
+          | Field (_, DefT (_, _, OptionalT t), polarity) -> Field (None, t, polarity)
+          | Field (_, t, polarity) -> Field (None, t, polarity)
+          | Get (_, t) -> Get (None, t)
+          | Set (_, t) -> Set (None, t)
+          | GetSet (_, t1, _, t2) -> GetSet (None, t1, None, t2)
+          | Method (_, t) -> Method (None, t)
+      ) props in
+      (* TODO: save call signature? *)
+      let call = None in
+      let id = Context.make_property_map cx props in
+      let proto = ObjProtoT reason in
+      let t = mk_object_def_type ~reason:r ~flags ~dict ~call id proto in
+      if flags.exact then ExactT (reason, t) else t
+    in
+
+    fun cx trace _ reason tout x ->
+      let t = match Nel.map (mk_required_object cx reason) x with
+        | (t, []) -> t
+        | (t0, t1::ts) -> DefT (reason, bogus_trust (), UnionT (UnionRep.make t0 t1 ts))
       in
       (* Intentional UnknownUse here. *)
       rec_flow_t cx trace (t, tout)
@@ -11421,7 +11455,7 @@ and object_kit =
     let prop_polarity = Neutral in
 
     let finish cx trace reason config defaults children =
-      let (config_reason, config_props, config_dict, config_flags) = config in
+      let (config_reason, config_props, config_dict, config_flags, _) = config in
       (* If we have some type for children then we want to add a children prop
        * to our config props. *)
       let config_props =
@@ -11441,7 +11475,7 @@ and object_kit =
       let props, dict, flags = match defaults with
         (* If we have some default props then we want to add the types for those
          * default props to our final props object. *)
-        | Some (defaults_reason, defaults_props, defaults_dict, defaults_flags) ->
+        | Some (defaults_reason, defaults_props, defaults_dict, defaults_flags, _) ->
           (* Merge our props and default props. *)
           let props = SMap.merge (fun _ p1 p2 ->
             let p1 = get_prop config_reason p1 config_dict in
@@ -11554,6 +11588,7 @@ and object_kit =
   | Rest (options, state) -> object_rest options state
   | ReactConfig state -> react_config state
   | ReadOnly -> object_read_only
+  | Required -> object_required
   in
 
   (* Intersect two object slices: slice * slice -> slice
@@ -11567,7 +11602,7 @@ and object_kit =
    * {...A&(B|C)} = {...(A&B)|(A&C)}
    * {...(A|B)&C} = {...(A&C)|(B&C)}
    *)
-  let intersect2 reason (r1, props1, dict1, flags1) (r2, props2, dict2, flags2) =
+  let intersect2 reason (r1, props1, dict1, flags1, raw_props1) (r2, props2, dict2, flags2, _) =
     let intersection t1 t2 = IntersectionT (reason, InterRep.make t1 t2 []) in
     let merge_props (t1, own1) (t2, own2) =
       let t1, t2, opt = match t1, t2 with
@@ -11603,13 +11638,14 @@ and object_kit =
       sealed = Sealed;
       exact = flags1.exact || flags2.exact;
     } in
-    props, dict, flags
+    let raw_props = raw_props1 in
+    props, dict, flags, raw_props
   in
 
   let intersect2_with_reason reason intersection_loc x1 x2 =
-    let props, dict, flags = intersect2 reason x1 x2 in
+    let props, dict, flags, raw_props = intersect2 reason x1 x2 in
     let r = mk_reason RObjectType intersection_loc in
-    r, props, dict, flags
+    r, props, dict, flags, raw_props
   in
 
   let resolved cx trace use_op reason resolve_tool tool tout x =
@@ -11633,15 +11669,15 @@ and object_kit =
   in
 
   let object_slice cx r id dict flags =
-    let props = Context.find_props cx id in
-    let props = SMap.mapi (read_prop r flags) props in
+    let raw_props = Context.find_props cx id in
+    let props = SMap.mapi (read_prop r flags) raw_props in
     let dict = Option.map dict (fun d -> {
       dict_name = None;
       key = d.key;
       value = read_dict r d;
       dict_polarity = Neutral;
     }) in
-    (r, props, dict, flags)
+    (r, props, dict, flags, raw_props)
   in
 
   let interface_slice cx r id =
@@ -11694,7 +11730,7 @@ and object_kit =
      * empty objects. *)
     | DefT (_, _, (NullT | VoidT)) ->
       let flags = { frozen = true; sealed = Sealed; exact = true } in
-      let x = Nel.one (reason, SMap.empty, None, flags) in
+      let x = Nel.one (reason, SMap.empty, None, flags, SMap.empty) in
       resolved cx trace use_op reason resolve_tool tool tout x
     (* mixed is treated as {[string]: mixed}. Any JavaScript value may be
      * treated as an object and so this is safe. *)
@@ -11705,7 +11741,7 @@ and object_kit =
         key = StrT.make r |> with_trust bogus_trust;
         value = t;
         dict_polarity = Neutral;
-      }), flags) in
+      }), flags, SMap.empty) in
       resolved cx trace use_op reason resolve_tool tool tout x
     (* If we see an empty then propagate empty to tout. *)
     | DefT (r, trust, EmptyT) ->
@@ -11729,8 +11765,8 @@ and object_kit =
       let slice = interface_slice cx r own_props in
       let acc = intersect2 reason acc slice in
       let acc =
-        let (props, dict, flags) = acc in
-        (reason, props, dict, flags)
+        let (props, dict, flags, raw_props) = acc in
+        (reason, props, dict, flags, raw_props)
       in
       let resolve_tool = Super (acc, resolve_tool) in
       rec_flow cx trace (super, ObjKitT (use_op, reason, resolve_tool, tool, tout))

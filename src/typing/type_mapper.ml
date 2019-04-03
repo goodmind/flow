@@ -380,6 +380,7 @@ class virtual ['a] t = object(self)
           if t'' == t' then t
           else Bind t''
       | ReadOnlyType -> t
+      | RequiredType -> t
       | SpreadType (options, tlist) ->
           let tlist' = ListUtils.ident_map (self#type_ cx map_cx) tlist in
           if tlist' == tlist then t
@@ -997,11 +998,11 @@ class virtual ['a] t_with_uses = object(self)
           if then_t' == then_t && else_t' == else_t && tout' == tout then t
           else CondT (r, then_t', else_t', tout')
       | ExtendsUseT (use_op, r, tlist, t1, t2) ->
-        let tlist' = ListUtils.ident_map (self#type_ cx map_cx) tlist in
-        let t1' = self#type_ cx map_cx t1 in
-        let t2' = self#type_ cx map_cx t2 in
-        if tlist' == tlist && t1' == t1 && t2' == t2 then t
-        else ExtendsUseT (use_op, r, tlist', t1', t2')
+          let tlist' = ListUtils.ident_map (self#type_ cx map_cx) tlist in
+          let t1' = self#type_ cx map_cx t1 in
+          let t2' = self#type_ cx map_cx t2 in
+          if tlist' == tlist && t1' == t1 && t2' == t2 then t
+          else ExtendsUseT (use_op, r, tlist', t1', t2')
 
     method private opt_use_type cx map_cx t = match t with
     | OptCallT (op, r, funcall) ->
@@ -1276,17 +1277,18 @@ class virtual ['a] t_with_uses = object(self)
         let r' = self#resolve cx map_cx r in
         if r' == r then t
         else Resolve r'
-    | Super ((reason, props, dict, flags), r) ->
+    | Super ((reason, props, dict, flags, raw_props), r) ->
         let props' = SMap.ident_map (fun (t, b) -> (self#type_ cx map_cx t, b)) props in
         let dict' = OptionUtils.ident_map (self#dict_type cx map_cx) dict in
         let r' = self#resolve cx map_cx r in
         if r' == r && props' == props then t
-        else Super ((reason, props', dict', flags), r')
+        else Super ((reason, props', dict', flags, raw_props), r')
 
   method object_kit_tool cx map_cx tool =
     let open Object in
     match tool with
     | ReadOnly -> tool
+    | Required -> tool
     | Spread (options, state) ->
       let open Object.Spread in
       let todo_rev' = ListUtils.ident_map (self#type_ cx map_cx) state.todo_rev in
@@ -1487,11 +1489,11 @@ class virtual ['a] t_with_uses = object(self)
     else (t', own)
 
   method resolved cx map_cx t =
-    let t' = Nel.ident_map (fun ((r, props, dict, flags) as slice) ->
+    let t' = Nel.ident_map (fun ((r, props, dict, flags, raw_props) as slice) ->
       let props' = SMap.ident_map (self#resolved_prop cx map_cx) props in
       let dict' = OptionUtils.ident_map (self#dict_type cx map_cx) dict in
       if props' == props && dict' == dict then slice
-      else (r, props', dict', flags)) t in
+      else (r, props', dict', flags, raw_props)) t in
     if t' == t then t
     else t'
 

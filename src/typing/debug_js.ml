@@ -1178,6 +1178,9 @@ and json_of_destructor_impl json_cx = Hh_json.(function
   | ReadOnlyType -> JSON_Object [
       "readOnly", JSON_Bool true
     ]
+  | RequiredType -> JSON_Object [
+      "required", JSON_Bool true
+    ]
   | SpreadType (target, ts) ->
     let open Object.Spread in
     JSON_Object (
@@ -1655,6 +1658,7 @@ let rec dump_t_ (depth, tvars) cx t =
   | ElementType _ -> "element type"
   | Bind _ -> "bind"
   | ReadOnlyType -> "read only"
+  | RequiredType -> "required"
   | SpreadType _ -> "spread"
   | RestType _ -> "rest"
   | ValuesType -> "values"
@@ -1985,7 +1989,7 @@ and dump_use_t_ (depth, tvars) cx t =
       spf "CreateClass (%s, %s)" (create_class tool knot) (kid tout)
   in
 
-  let slice (_, props, dict, {exact; _}) =
+  let slice (_, props, dict, {exact; _}, _) =
     let xs = match dict with
     | Some {dict_polarity=p; _} -> [(Polarity.sigil p)^"[]"]
     | None -> []
@@ -2057,6 +2061,7 @@ and dump_use_t_ (depth, tvars) cx t =
     in
     let tool = function
       | ReadOnly -> "ReadOnly"
+      | Required -> "Required"
       | Spread (options, state) -> spread options state
       | Rest (options, state) -> rest options state
       | ReactConfig state -> react_props state
@@ -2399,6 +2404,7 @@ let string_of_destructor = function
   | ElementType _ -> "ElementType"
   | Bind _ -> "Bind"
   | ReadOnlyType -> "ReadOnly"
+  | RequiredType -> "Required"
   | SpreadType _ -> "Spread"
   | RestType _ -> "Rest"
   | ValuesType -> "Values"
@@ -2478,6 +2484,7 @@ let dump_error_message =
   | IncompatibleMapTypeTObject -> "IncompatibleMapTypeTObject"
   | IncompatibleTypeAppVarianceCheckT -> "IncompatibleTypeAppVarianceCheckT"
   | IncompatibleGetStaticsT -> "IncompatibleGetStaticsT"
+  | IncompatibleRequiredT -> "IncompatibleRequiredT"
   | IncompatibleUnclassified ctor -> spf "IncompatibleUnclassified %S" ctor
   in
   fun cx err ->

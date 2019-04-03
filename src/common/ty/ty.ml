@@ -118,6 +118,7 @@ and utility =
   | Keys of t
   | Values of t
   | ReadOnly of t
+  | Required of t
   | Exact of t
   | Diff of t * t
   | Rest of t * t
@@ -262,6 +263,7 @@ let string_of_utility_ctor = function
   | Keys _ -> "$Keys"
   | Values _ -> "$Values"
   | ReadOnly _ -> "$ReadOnly"
+  | Required _ -> "$Required"
   | Exact _ -> "$Exact"
   | Diff _ -> "$Diff"
   | Rest _ -> "$Rest"
@@ -282,6 +284,7 @@ let types_of_utility = function
   | Keys t -> Some [t]
   | Values t -> Some [t]
   | ReadOnly t -> Some [t]
+  | Required t -> Some [t]
   | Exact t -> Some [t]
   | Diff (t1, t2) -> Some [t1; t2]
   | Rest (t1, t2) -> Some [t1; t2]

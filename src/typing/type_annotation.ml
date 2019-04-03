@@ -109,9 +109,7 @@ let rec convert cx tparams_map = Ast.Type.(function
 | loc, (Number as t_ast) -> (loc, NumT.at loc |> with_trust annot_trust), t_ast
 
 | loc, (BigInt as t_ast) ->
-  let reason = annot_reason (mk_reason RBigInt loc) in
-  Flow.add_output cx (Error_message.EBigIntNotYetSupported reason);
-  (loc, AnyT.why AnyError reason), t_ast
+  (loc, BigNumT.at loc |> with_trust annot_trust), t_ast
 
 | loc, (String as t_ast) -> (loc, StrT.at loc |> with_trust annot_trust), t_ast
 
@@ -193,10 +191,8 @@ let rec convert cx tparams_map = Ast.Type.(function
 | loc, (NumberLiteral { Ast.NumberLiteral.value; raw } as t_ast) ->
   (loc, mk_singleton_number loc value raw), t_ast
 
-| loc, (BigIntLiteral { Ast.BigIntLiteral.bigint; _ } as t_ast) ->
-  let reason = annot_reason (mk_reason (RBigIntLit bigint) loc) in
-  Flow.add_output cx (Error_message.EBigIntNotYetSupported reason);
-  (loc, AnyT.why AnyError reason), t_ast
+| loc, (BigIntLiteral { Ast.BigIntLiteral.approx_value; bigint } as t_ast) ->
+  (loc, mk_singleton_bigint loc approx_value bigint), t_ast
 
 | loc, (BooleanLiteral value as t_ast) ->
   (loc, mk_singleton_boolean loc value), t_ast
@@ -264,6 +260,17 @@ let rec convert cx tparams_map = Ast.Type.(function
         | DefT (r, trust, SingletonNumT num_lit) ->
           reconstruct_ast
             (DefT (replace_reason_const RNumber r, trust, NumT (Literal (None, num_lit))))
+            targs
+        | _ -> error_type cx loc (Error_message.EUnexpectedTemporaryBaseType loc) t_ast
+    )
+
+  | "$TEMPORARY$bigint" ->
+    check_type_arg_arity cx loc t_ast targs 1 (fun () ->
+      let elemts, targs = convert_type_params () in
+      match List.hd elemts with
+        | DefT (r, trust, SingletonBigNumT bignum_lit) ->
+          reconstruct_ast
+            (DefT (replace_reason_const RBigInt r, trust, BigNumT (Literal (None, bignum_lit))))
             targs
         | _ -> error_type cx loc (Error_message.EUnexpectedTemporaryBaseType loc) t_ast
     )
@@ -1387,6 +1394,10 @@ and mk_singleton_string loc key =
 and mk_singleton_number loc num raw =
   let reason = mk_reason (RNumberLit raw) loc in
   DefT (reason, annot_trust (), SingletonNumT (num, raw))
+
+and mk_singleton_bigint loc num raw =
+  let reason = mk_reason (RBigIntLit raw) loc in
+  DefT (reason, annot_trust (), SingletonBigNumT (num, raw))
 
 and mk_singleton_boolean loc b =
   let reason = mk_reason (RBooleanLit b) loc in

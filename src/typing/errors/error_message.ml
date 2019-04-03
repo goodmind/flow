@@ -134,6 +134,7 @@ and 'loc t' =
   | EBinaryInLHS of 'loc virtual_reason
   | EBinaryInRHS of 'loc virtual_reason
   | EArithmeticOperand of 'loc virtual_reason
+  | EBigIntArithmeticOperand of 'loc virtual_reason
   | EForInRHS of 'loc virtual_reason
   | EObjectComputedPropertyAccess of ('loc virtual_reason * 'loc virtual_reason)
   | EObjectComputedPropertyAssign of ('loc virtual_reason * 'loc virtual_reason)
@@ -170,6 +171,7 @@ and 'loc t' =
       falsy_loc: 'loc;
     }
   | ESketchyNumberLint of Lints.sketchy_number_kind * 'loc virtual_reason
+  | ESketchyBigIntLint of Lints.sketchy_number_kind * 'loc virtual_reason
   | EInvalidPrototype of 'loc virtual_reason
   | EExperimentalOptionalChaining of 'loc
   | EOptionalChainingMethods of 'loc
@@ -178,7 +180,7 @@ and 'loc t' =
   | EInexactSpread of 'loc virtual_reason * 'loc virtual_reason
   | EDeprecatedCallSyntax of 'loc
   | EUnexpectedTemporaryBaseType of 'loc
-  | EBigIntNotYetSupported of 'loc virtual_reason
+  | EBigIntNoUnsignedRightShift of 'loc virtual_reason
   (* These are unused when calculating locations so we can leave this as Aloc *)
   | ESignatureVerification of Signature_builder_deps.With_ALoc.Error.t
 
@@ -446,6 +448,7 @@ let map_loc_of_error_message (f : 'a -> 'b) : 'a t' -> 'b t' =
   | EBinaryInLHS r -> EBinaryInLHS (map_reason r)
   | EBinaryInRHS r -> EBinaryInRHS (map_reason r)
   | EArithmeticOperand r -> EArithmeticOperand (map_reason r)
+  | EBigIntArithmeticOperand r -> EBigIntArithmeticOperand (map_reason r)
   | EForInRHS r -> EForInRHS (map_reason r)
   | EObjectComputedPropertyAccess (r1, r2) ->
       EObjectComputedPropertyAccess (map_reason r1, map_reason r2)
@@ -471,6 +474,7 @@ let map_loc_of_error_message (f : 'a -> 'b) : 'a t' -> 'b t' =
   | ESketchyNullLint { kind; loc; null_loc; falsy_loc } ->
       ESketchyNullLint { kind; loc = f loc; null_loc = f null_loc; falsy_loc = f falsy_loc; }
   | ESketchyNumberLint (kind, r) -> ESketchyNumberLint (kind, map_reason r)
+  | ESketchyBigIntLint (kind, r) -> ESketchyBigIntLint (kind, map_reason r)
   | EInvalidPrototype r -> EInvalidPrototype (map_reason r)
   | EExperimentalOptionalChaining loc -> EExperimentalOptionalChaining (f loc)
   | EOptionalChainingMethods loc -> EOptionalChainingMethods (f loc)
@@ -479,7 +483,7 @@ let map_loc_of_error_message (f : 'a -> 'b) : 'a t' -> 'b t' =
   | EInexactSpread (r1, r2) -> EInexactSpread (map_reason r1, map_reason r2)
   | EDeprecatedCallSyntax loc -> EDeprecatedCallSyntax (f loc)
   | EUnexpectedTemporaryBaseType loc -> EUnexpectedTemporaryBaseType (f loc)
-  | EBigIntNotYetSupported r -> EBigIntNotYetSupported (map_reason r)
+  | EBigIntNoUnsignedRightShift r -> EBigIntNoUnsignedRightShift (map_reason r)
   | ESignatureVerification _ as e -> e
 
 let desc_of_reason r = Reason.desc_of_reason ~unwrap:(is_scalar_reason r) r
@@ -580,6 +584,7 @@ let util_use_op_of_msg nope util = function
 | EBinaryInLHS (_)
 | EBinaryInRHS (_)
 | EArithmeticOperand (_)
+| EBigIntArithmeticOperand (_)
 | EForInRHS (_)
 | EObjectComputedPropertyAccess (_, _)
 | EObjectComputedPropertyAssign (_, _)
@@ -602,6 +607,7 @@ let util_use_op_of_msg nope util = function
 | ELintSetting (_)
 | ESketchyNullLint {kind=_; loc=_; null_loc=_; falsy_loc=_}
 | ESketchyNumberLint _
+| ESketchyBigIntLint _
 | EInvalidPrototype (_)
 | EExperimentalOptionalChaining _
 | EOptionalChainingMethods _
@@ -610,7 +616,7 @@ let util_use_op_of_msg nope util = function
 | EInexactSpread _
 | EDeprecatedCallSyntax _
 | EUnexpectedTemporaryBaseType _
-| EBigIntNotYetSupported _
+| EBigIntNoUnsignedRightShift _
 | ESignatureVerification _
   -> nope
 
@@ -627,8 +633,9 @@ let aloc_of_msg : t -> ALoc.t option = function
   | ETooManyTypeArgs (primary, _, _) ->
       Some (aloc_of_reason primary)
   | ESketchyNumberLint (_, reason)
+  | ESketchyBigIntLint (_, reason)
   | EInvalidPrototype reason
-  | EBigIntNotYetSupported reason
+  | EBigIntNoUnsignedRightShift reason
   | EUnsupportedSetProto reason
   | EReactElementFunArity (reason, _, _)
   | EUnsupportedImplements reason
@@ -638,6 +645,7 @@ let aloc_of_msg : t -> ALoc.t option = function
   | EBinaryInRHS reason
   | EBinaryInLHS reason
   | EArithmeticOperand reason
+  | EBigIntArithmeticOperand reason
   | ERecursionLimit (reason, _)
   | EMissingAnnotation (reason, _)
   | EIdxArity reason
@@ -769,6 +777,7 @@ let kind_of_msg = Errors.(function
   | EDeprecatedCallSyntax _         -> LintError Lints.DeprecatedCallSyntax
   | ESketchyNullLint { kind; _ }    -> LintError (Lints.SketchyNull kind)
   | ESketchyNumberLint (kind, _)    -> LintError (Lints.SketchyNumber kind)
+  | ESketchyBigIntLint (kind, _)    -> LintError (Lints.SketchyNumber kind)
   | EUnnecessaryOptionalChain _     -> LintError Lints.UnnecessaryOptionalChain
   | EUnnecessaryInvariant _         -> LintError Lints.UnnecessaryInvariant
   | EInexactSpread _                -> LintError Lints.InexactSpread
@@ -1547,6 +1556,12 @@ let friendly_message_of_msg : Loc.t t' -> Loc.t friendly_message_recipe =
         text "is not a number.";
       ]
 
+    | EBigIntArithmeticOperand reason ->
+      Normal [
+        text "Cannot perform arithmetic operation because "; ref reason; text " ";
+        text "is not a bigint.";
+      ]
+
     | EBinaryInLHS reason ->
       (* TODO: or symbol *)
       Normal [
@@ -1770,6 +1785,7 @@ let friendly_message_of_msg : Loc.t t' -> Loc.t friendly_message_recipe =
       let type_str, value_str = match sketchy_kind with
       | Lints.SketchyNullBool -> "boolean", "false"
       | Lints.SketchyNullNumber -> "number", "0"
+      | Lints.SketchyNullBigInt -> "bigint", "0n"
       | Lints.SketchyNullString -> "string", "an empty string"
       | Lints.SketchyNullMixed -> "mixed", "false"
       in
@@ -1777,6 +1793,13 @@ let friendly_message_of_msg : Loc.t t' -> Loc.t friendly_message_recipe =
         text "Sketchy null check on "; ref (mk_reason (RCustom type_str) falsy_loc); text " ";
         text "which is potentially "; text value_str; text ". Perhaps you meant to ";
         text "check for "; ref (mk_reason RNullOrVoid null_loc); text "?";
+      ]
+
+    | ESketchyBigIntLint (_, reason) ->
+      Normal [
+        text "Avoid using "; code "&&"; text " to check the value of "; ref reason; text ". ";
+        text "Consider handling falsy values (0n) by using a conditional to choose an ";
+        text "explicit default instead.";
       ]
 
     | ESketchyNumberLint (_, reason) ->
@@ -1825,9 +1848,9 @@ let friendly_message_of_msg : Loc.t t' -> Loc.t friendly_message_recipe =
         text " might be missing the types of some properties that are being copied. ";
         text "Perhaps you could make it exact?"
       ]
-    | EBigIntNotYetSupported reason ->
+    | EBigIntNoUnsignedRightShift _ ->
       Normal [
-        text "BigInt "; ref reason; text " is not yet supported."
+        text "BigInts have no unsigned right shift, use >> instead."
       ]
 )
 
@@ -1842,8 +1865,8 @@ let is_lint_error = function
   | EUnsafeGettersSetters _
   | ESketchyNullLint _
   | ESketchyNumberLint _
+  | ESketchyBigIntLint _
   | EInexactSpread _
-  | EBigIntNotYetSupported _
   | EUnnecessaryOptionalChain _
   | EUnnecessaryInvariant _
       -> true

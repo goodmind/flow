@@ -157,6 +157,8 @@ let detect_sketchy_null_checks cx =
           Option.iter exists_check.bool_loc ~f:(add_error Lints.SketchyNullBool);
         if (Option.is_none exists_excuse.number_loc) then
           Option.iter exists_check.number_loc ~f:(add_error Lints.SketchyNullNumber);
+        if (Option.is_none exists_excuse.bigint_loc) then
+          Option.iter exists_check.bigint_loc ~f:(add_error Lints.SketchyNullBigInt);
         if (Option.is_none exists_excuse.string_loc) then
           Option.iter exists_check.string_loc ~f:(add_error Lints.SketchyNullString);
         if (Option.is_none exists_excuse.mixed_loc) then
@@ -213,7 +215,7 @@ let check_type_visitor wrap =
     | TypeAlias { ta_name = { Ty.name; _ }; _} ->
       wrap (Reason.RCustom ("type alias " ^ name))
     | (Obj _ | Arr _ | Tup _ | Union _ | Inter _) as t -> super#on_t env t
-    | (Void|Null|Num _|Str _|Bool _|NumLit _|StrLit _|BoolLit _|TypeOf _|
+    | (Void|Null|Num _|BigNum _|Str _|Bool _|NumLit _|BigNumLit _|StrLit _|BoolLit _|TypeOf _|
       Generic _|ClassDecl _|InterfaceDecl _|Utility _) -> ()
 
   end

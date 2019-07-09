@@ -7,7 +7,14 @@ name: Hello Semaphore
 agent:
   machine:
     type: e1-standard-2
-    os_image: ubuntu1804
+  containers:
+    - name: flowtype
+      image: ocaml/opam2:debian-8
+      env_vars:
+        - name: TERM
+          value: dumb
+        - name: OPAMYES
+          value: true
 blocks:
   - name: Simple example
     task:
@@ -21,3 +28,8 @@ blocks:
           - echo $APP_ENV
           - checkout
           - ls -alh
+      - name: Update opam repo
+        commands: |
+            opam remote list -s | grep upstream >/dev/null || \
+              opam remote add upstream https://opam.ocaml.org | cat
+            opam update | cat

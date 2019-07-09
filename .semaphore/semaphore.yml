@@ -11,26 +11,23 @@ agent:
     - name: main
       image: ocaml/opam2:debian-8
 blocks:
-  - name: Build Linux
+  - name: Linux
     task:
       jobs:
-        - name: Update opam repo
+        - name: Build
           commands:
+            # Update opam repo
             - opam remote list -s | grep upstream >/dev/null || opam remote add upstream https://opam.ocaml.org
             - opam update
-        - name: Install deps from opam
-          commands:
+            # Install deps from opam
             - eval $(opam env)
             - opam switch create . 4.05.0 --deps-only | cat
-        - name: Install extra deps from opam
-          commands: 
+            # Install extra deps from opam
             - opam install js_of_ocaml.3.1.0 | cat
-        - name: Build flow
-          commands:
+            # Build flow
             - opam exec -- make bin/flow dist/flow.zip
             - mkdir -p bin/linux && cp bin/flow bin/linux/flow
-        - name: Create artifacts
-          commands:
+            # Create artifacts
             - cp dist/flow.zip dist/flow-linux64.zip
             - cp src/parser/dist/libflowparser.zip dist/libflowparser-linux64.zip
             - cp src/parser/flow_parser.js dist/flow_parser.js

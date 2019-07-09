@@ -17,6 +17,8 @@ agent:
           value: "true"
 blocks:
   - name: Linux
+    skip:
+      when: "tag !~ '.*'"
     task:
       jobs:
         - name: Build

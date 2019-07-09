@@ -10,6 +10,11 @@ agent:
   containers:
     - name: main
       image: ocaml/opam2:debian-8
+      env_vars:
+        - name: TERM
+          value: dumb
+        - name: OPAMYES
+          value: "true"
 blocks:
   - name: Linux
     task:

@@ -14,7 +14,7 @@ agent:
         - name: TERM
           value: dumb
         - name: OPAMYES
-          value: true
+          value: "true"
 blocks:
   - name: Simple example
     task:
@@ -22,14 +22,14 @@ blocks:
         - name: APP_ENV
           value: prod
       jobs:
-      - name: Download our code
-        commands:
-          - echo "Hello from Semaphore!"
-          - echo $APP_ENV
-          - checkout
-          - ls -alh
-      - name: Update opam repo
-        commands: |
+        - name: Download our code
+          commands:
+            - echo "Hello from Semaphore!"
+            - echo $APP_ENV
+            - checkout
+            - ls -alh
+        - name: Update opam repo
+          commands: |
             opam remote list -s | grep upstream >/dev/null || \
               opam remote add upstream https://opam.ocaml.org | cat
             opam update | cat

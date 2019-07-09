@@ -5,12 +5,11 @@ agent:
     type: e1-standard-2
   containers:
     - name: main
-      image: semaphoreci/rust:1.35
+      image: ocaml/opam2:debian-8
 blocks:
   - name: Hello world
     task:
       jobs:
         - name: Compile and run code
           commands:
-            - printf 'fn main() { println!("Hello World!"); }' > hello.rs && rustc hello.rs
-            - ./hello
+            - echo "way"

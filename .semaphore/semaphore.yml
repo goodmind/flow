@@ -14,9 +14,6 @@ agent:
 blocks:
   - name: Simple example
     task:
-      env_vars:
-        - name: APP_ENV
-          value: prod
       jobs:
         - name: Echo
           commands:

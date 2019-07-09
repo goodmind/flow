@@ -7,6 +7,7 @@ name: Hello Semaphore
 agent:
   machine:
     type: e1-standard-2
+    os_image: ubuntu1804
   containers:
     - name: flowtype
       image: ocaml/opam2:debian-8

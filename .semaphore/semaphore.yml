@@ -21,18 +21,24 @@ blocks:
       jobs:
         - name: Build
           commands:
+            - checkout
             # Install deps
             - sudo apt-get update && sudo apt-get --yes install zip m4
+            # Calculate opam version
+            - opam --version > .semaphore/opamversion
+            # Restore opam cache
+            - cache restore opam-cache-$(uname -s)-opam_$(checksum ".semaphore/opamversion")-ocaml_4_05_0-$(checksum "opam")
             # Update opam repo
             - opam remote list -s | grep upstream >/dev/null || opam remote add upstream https://opam.ocaml.org
             - opam update
             # Install deps from opam
-            - opam switch create . 4.05.0 --deps-only | cat
             - eval $(opam env)
+            - opam switch create . 4.05.0 --deps-only | cat
             # Install extra deps from opam
             - opam install js_of_ocaml.3.1.0 | cat
+            # Save opam cache
+            - cache store opam-cache-$(uname -s)-opam_$(checksum ".semaphore/opamversion")-ocaml_4_05_0-$(checksum "opam") ~/.opam
             # Build flow
-            - checkout
             - ls -alh
             - opam exec -- make bin/flow dist/flow.zip
             - mkdir -p bin/linux && cp bin/flow bin/linux/flow

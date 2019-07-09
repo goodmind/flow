@@ -19,6 +19,5 @@ blocks:
       jobs:
         - name: Update opam repo
           commands:
-            - opam remote list -s | grep upstream >/dev/null || \
-                opam remote add upstream https://opam.ocaml.org | cat
-            - opam update | cat
+            - opam remote list -s | grep upstream >/dev/null || opam remote add upstream https://opam.ocaml.org
+            - opam update

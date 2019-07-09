@@ -32,6 +32,8 @@ blocks:
             # Install extra deps from opam
             - opam install js_of_ocaml.3.1.0 | cat
             # Build flow
+            - checkout
+            - ls -alh
             - opam exec -- make bin/flow dist/flow.zip
             - mkdir -p bin/linux && cp bin/flow bin/linux/flow
             # Create artifacts

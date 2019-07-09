@@ -10,11 +10,6 @@ agent:
   containers:
     - name: flowtype
       image: ocaml/opam2:debian-8
-      env_vars:
-        - name: TERM
-          value: dumb
-        - name: OPAMYES
-          value: "true"
 blocks:
   - name: Simple example
     task:
@@ -22,12 +17,6 @@ blocks:
         - name: APP_ENV
           value: prod
       jobs:
-        - name: Download our code
-          commands:
-            - echo "Hello from Semaphore!"
-            - echo $APP_ENV
-            - checkout
-            - ls -alh
         - name: Update opam repo
           commands:
             - opam remote list -s | grep upstream >/dev/null || \

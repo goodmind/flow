@@ -16,6 +16,8 @@ blocks:
       jobs:
         - name: Build
           commands:
+            # Install deps
+            - sudo apt-get update && sudo apt-get --yes install zip m4
             # Update opam repo
             - opam remote list -s | grep upstream >/dev/null || opam remote add upstream https://opam.ocaml.org
             - opam update

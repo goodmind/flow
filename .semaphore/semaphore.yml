@@ -17,7 +17,10 @@ blocks:
         - name: APP_ENV
           value: prod
       jobs:
-        - name: Update opam repo
+        - name: Echo
           commands:
-            - opam remote list -s | grep upstream >/dev/null || opam remote add upstream https://opam.ocaml.org
-            - opam update
+            - echo "wat"
+        # - name: Update opam repo
+        #   commands:
+        #     - opam remote list -s | grep upstream >/dev/null || opam remote add upstream https://opam.ocaml.org
+        #     - opam update

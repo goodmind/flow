@@ -20,8 +20,8 @@ blocks:
             - opam remote list -s | grep upstream >/dev/null || opam remote add upstream https://opam.ocaml.org
             - opam update
             # Install deps from opam
-            - eval $(opam env)
             - opam switch create . 4.05.0 --deps-only | cat
+            - eval $(opam env)
             # Install extra deps from opam
             - opam install js_of_ocaml.3.1.0 | cat
             # Build flow

@@ -2973,6 +2973,15 @@ and expression_ ~is_cond cx loc e : (ALoc.t, ALoc.t * Type.t) Ast.Expression.t =
       (loc, t),
       TypeCast { TypeCast.expression = e'; annot = annot' }
 
+  | ConstAssertion { ConstAssertion.expression = e } ->
+      let (_, infer_t), _ as e' = expression cx e in
+      let reason = reason_of_t infer_t in
+      let t = Tvar.mk_where cx reason (fun tout ->
+        Flow.flow cx (infer_t, ConstAssertionT (reason, tout))
+      ) in
+      (loc, t),
+      ConstAssertion { ConstAssertion.expression = e' }
+
   | Member _ -> subscript ~is_cond cx ex
 
   | OptionalMember _ -> subscript ~is_cond cx ex

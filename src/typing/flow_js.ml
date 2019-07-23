@@ -2695,6 +2695,9 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
           use_op;
         })
 
+    | l, ConstAssertionT (_, tout) ->
+      rec_flow_t cx trace (const_assertion cx trace l, tout)
+
     (*****************************************************)
     (* keys (NOTE: currently we only support string keys *)
     (*****************************************************)
@@ -2807,17 +2810,7 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
         match Property.read_t prop with
         | Some t ->
             let t = if flags.frozen then
-              match t with
-              | DefT (t_reason, trust, StrT (Literal (_, lit))) ->
-                let t_reason = replace_reason_const (RStringLit lit) t_reason in
-                DefT (t_reason, trust, SingletonStrT lit)
-              | DefT (t_reason, trust, NumT (Literal (_, lit))) ->
-                let t_reason = replace_reason_const (RNumberLit (snd lit)) t_reason in
-                DefT (t_reason, trust, SingletonNumT lit)
-              | DefT (t_reason, trust, BoolT (Some lit)) ->
-                let t_reason = replace_reason_const (RBooleanLit lit) t_reason in
-                DefT (t_reason, trust, SingletonBoolT lit)
-              | _ -> t
+              literal_cast t
             else t in
             t :: ts
         | None -> ts
@@ -5204,7 +5197,7 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
          but point at the entire Object.freeze call. *)
       let desc = RFrozen (desc_of_reason reason_o) in
       let reason = replace_reason_const desc reason_op in
-
+      
       let flags = {frozen = true; sealed = Sealed; exact = true;} in
       let new_obj = DefT (reason, trust, ObjT {objtype with flags}) in
       rec_flow_t cx trace (new_obj, t)
@@ -6994,6 +6987,7 @@ and empty_success flavor u =
   | _, CondT _
   | _, DestructuringT _
   | _, MakeExactT _
+  | _, ConstAssertionT _
   | _, ObjKitT _
   | _, ReposLowerT _
   | _, ReposUseT _
@@ -7243,6 +7237,7 @@ and any_propagated cx trace any u =
   | LookupT _
   | MatchPropT _
   | MakeExactT _
+  | ConstAssertionT _
   | MapTypeT _
   | MethodT _
   | MixinT _
@@ -11333,6 +11328,30 @@ and continue cx trace t = function
 and continue_repos cx trace reason ?(use_desc=false) t = function
   | Lower (use_op, l) -> rec_flow cx trace (t, ReposUseT (reason, use_desc, use_op, l))
   | Upper u -> rec_flow cx trace (t, ReposLowerT (reason, use_desc, u))
+
+and literal_cast t = match t with
+  | DefT (t_reason, trust, StrT (Literal (_, lit))) ->
+    let t_reason = replace_reason_const (RStringLit lit) t_reason in
+    DefT (t_reason, trust, SingletonStrT lit)
+  | DefT (t_reason, trust, NumT (Literal (_, lit))) ->
+    let t_reason = replace_reason_const (RNumberLit (snd lit)) t_reason in
+    DefT (t_reason, trust, SingletonNumT lit)
+  | DefT (t_reason, trust, BoolT (Some lit)) ->
+    let t_reason = replace_reason_const (RBooleanLit lit) t_reason in
+    DefT (t_reason, trust, SingletonBoolT lit)
+  | _ -> t
+
+and const_assertion cx trace t = match t with
+  | DefT (t_reason, trust, ArrT (ArrayAT (t, Some t_list))) ->
+    let t_reason = replace_reason_const RTupleType t_reason in
+    let f t =
+      let reason = reason_of_t t in
+      Tvar.mk_where cx reason (fun tout ->
+        rec_flow cx trace (t, ConstAssertionT (reason, tout))
+      )
+    in
+    DefT (t_reason, trust, ArrT (TupleAT (t, Core_list.map ~f t_list)))
+  | _ -> literal_cast t
 
 and object_kit =
   let open Object in

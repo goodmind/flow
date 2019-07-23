@@ -845,6 +845,10 @@ class virtual ['a] t_with_uses = object(self)
           let t'' = self#type_ cx map_cx t' in
           if t'' == t' then t
           else GetValuesT (r, t'')
+      | ConstAssertionT (r, t') ->
+          let t'' = self#type_ cx map_cx t' in
+          if t'' == t' then t
+          else ConstAssertionT (r, t'')
       | ReactPropsToOut (r, t') ->
           let t'' = self#type_ cx map_cx t' in
           if t'' == t' then t

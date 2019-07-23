@@ -727,6 +727,10 @@ and _json_of_use_t_impl json_cx t = Hh_json.(
 
   | MakeExactT (_, cont) -> _json_of_cont json_cx cont
 
+  | ConstAssertionT (_, t) -> [
+      "type", _json_of_t json_cx t
+    ]
+
   | CJSRequireT (_, export, _) -> [
       "export",
       _json_of_t json_cx export
@@ -2187,6 +2191,7 @@ and dump_use_t_ (depth, tvars) cx t =
       (lookup_kind kind)
       (lookup_action action)) t
   | MakeExactT _ -> p t
+  | ConstAssertionT _ -> p t
   | MapTypeT _ -> p t
   | MethodT (_, _, _, prop, _, _) -> p ~extra:(spf "(%s)" (propref prop)) t
   | MixinT (_, arg) -> p ~extra:(kid arg) t

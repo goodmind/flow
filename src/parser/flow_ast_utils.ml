@@ -157,6 +157,7 @@ module ExpressionSort = struct
     | TemplateLiteral
     | This
     | TypeCast
+    | ConstAssertion
     | Unary
     | Update
     | Yield
@@ -190,6 +191,7 @@ module ExpressionSort = struct
     | TemplateLiteral -> "template literal"
     | This -> "`this` reference"
     | TypeCast -> "type cast"
+    | ConstAssertion -> "const assertion"
     | Unary -> "unary expression"
     | Update -> "update expression"
     | Yield -> "yield expression"

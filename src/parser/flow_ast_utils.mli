@@ -92,6 +92,7 @@ module ExpressionSort: sig
     | TemplateLiteral
     | This
     | TypeCast
+    | ConstAssertion
     | Unary
     | Update
     | Yield

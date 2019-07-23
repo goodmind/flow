@@ -295,6 +295,7 @@ and get_children_nodes_expr expression =
       expressions |> Core_list.map ~f:get_children_nodes_expr |> List.flatten
   | This -> []
   | TypeCast {TypeCast.expression; _} -> get_children_nodes_expr expression
+  | ConstAssertion {ConstAssertion.expression} ->get_children_nodes_expr expression
   | Unary {Unary.argument; _} -> get_children_nodes_expr argument
   | Update {Update.argument; _} -> get_children_nodes_expr argument
   | Yield {Yield.argument; _} ->

@@ -138,6 +138,7 @@ type hash =
   | GetValuesH
   | ElemH
   | MakeExactH
+  | ConstAssertionH
   | CJSRequireH
   | ImportModuleNsH
   | ImportDefaultH
@@ -298,6 +299,7 @@ let hash_of_use_ctor = Type.(function
   | GetValuesT _ -> GetValuesH
   | ElemT _ -> ElemH
   | MakeExactT _ -> MakeExactH
+  | ConstAssertionT _ -> ConstAssertionH
   | CJSRequireT _ -> CJSRequireH
   | ImportModuleNsT _ -> ImportModuleNsH
   | ImportDefaultT _ -> ImportDefaultH

@@ -69,6 +69,7 @@ module Expression
     | _, TemplateLiteral _
     | _, This
     | _, TypeCast _
+    | _, ConstAssertion _
     | _, Unary _
     | _, Update _
     | _, Yield _
@@ -224,6 +225,7 @@ module Expression
     | _, TemplateLiteral _
     | _, This
     | _, TypeCast _
+    | _, ConstAssertion _
     | _, Unary _
     | _, Update _
     | _, Yield _
@@ -1032,12 +1034,22 @@ module Expression
     let ret = (match Peek.token env with
     | T_COMMA -> sequence env [expression]
     | T_COLON ->
+      let next_token = Peek.ith_token ~i:1 env in
+      (match next_token with
+      | T_CONST ->
+        Expect.token env T_COLON;
+        Expect.token env T_CONST;
+        Expression.(fst expression,
+        ConstAssertion ConstAssertion.({
+          expression;
+        }))
+      | _ ->
         let annot = Type.annotation env in
         Expression.(Loc.btwn (fst expression) (fst annot),
-          TypeCast TypeCast.({
-            expression;
-            annot;
-          }))
+        TypeCast TypeCast.({
+          expression;
+          annot;
+        })))
     | _ -> expression) in
     Expect.token env T_RPAREN;
     ret

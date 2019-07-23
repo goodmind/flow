@@ -444,6 +444,8 @@ class ['a] t = object(self)
 
   | MakeExactT (_, cont) -> self#cont cx acc cont
 
+  | ConstAssertionT (_, t) -> self#type_ cx pole_TODO acc t
+
   | CJSRequireT (_, t, _)
   | ImportModuleNsT (_, t, _)
   | ImportDefaultT (_, _, _, t, _)

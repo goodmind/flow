@@ -438,6 +438,13 @@ end with type t = Impl.t) = struct
           node "TypeCastExpression" loc [
             "expression", expression expr;
             "typeAnnotation", type_annotation annot;
+            "const", bool false;
+          ]
+      | loc, ConstAssertion { ConstAssertion.expression = expr } ->
+          node "TypeCastExpression" loc [
+            "expression", expression expr;
+            "typeAnnotation", null;
+            "const", bool true;
           ]
       | loc, Assignment { Assignment.left; operator; right } ->
           let operator = match operator with

@@ -1011,6 +1011,12 @@ and Expression : sig
     }
     [@@deriving show]
   end
+  module ConstAssertion : sig
+    type ('M, 'T) t = {
+      expression: ('M, 'T) Expression.t;
+    }
+    [@@deriving show]
+  end
   module MetaProperty : sig
     type 'M t = {
       meta: ('M, 'M) Identifier.t;
@@ -1049,6 +1055,7 @@ and Expression : sig
     | TemplateLiteral of ('M, 'T) TemplateLiteral.t
     | This
     | TypeCast of ('M, 'T) TypeCast.t
+    | ConstAssertion of ('M, 'T) ConstAssertion.t
     | Unary of ('M, 'T) Unary.t
     | Update of ('M, 'T) Update.t
     | Yield of ('M, 'T) Yield.t

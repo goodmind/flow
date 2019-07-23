@@ -986,6 +986,7 @@ module Eval(Env: Signature_builder_verify.EvalEnv) = struct
         end
 
       | loc, Call _
+      | loc, ConstAssertion _
       | loc, Comprehension _
       | loc, Conditional _
       | loc, Generator _

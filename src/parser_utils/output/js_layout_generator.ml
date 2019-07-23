@@ -141,6 +141,7 @@ let precedence_of_expression expr =
   (* Expressions that always need parens (probably) *)
   | (_, E.Comprehension _)
   | (_, E.Generator _)
+  | (_, E.ConstAssertion _)
   | (_, E.TypeCast _) -> 0
 
 let definitely_needs_parens =
@@ -932,6 +933,13 @@ and expression ?(ctxt=normal_context) (root_expr: (Loc.t, Loc.t) Ast.Expression.
       wrap_in_parens (fuse [
         expression expr;
         type_annotation annot;
+      ])
+    | E.ConstAssertion { E.ConstAssertion.expression=expr } ->
+      wrap_in_parens (fuse [
+        expression expr;
+        Atom ":";
+        pretty_space;
+        Atom "const";
       ])
     | E.Import expr -> fuse [
         Atom "import";

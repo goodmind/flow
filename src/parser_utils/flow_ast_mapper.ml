@@ -201,6 +201,7 @@ class ['loc] mapper = object(this)
     | loc, TaggedTemplate x -> id_loc this#tagged_template loc x expr (fun x -> loc, TaggedTemplate x)
     | loc, TemplateLiteral x -> id_loc this#template_literal loc x expr (fun x -> loc, TemplateLiteral x)
     | loc, TypeCast x -> id_loc this#type_cast loc x expr (fun x -> loc, TypeCast x)
+    | loc, ConstAssertion x -> id_loc this#const_assertion loc x expr (fun x -> loc, ConstAssertion x)
     | loc, Unary x -> id_loc this#unary_expression loc x expr (fun x -> loc, Unary x)
     | loc, Update x -> id_loc this#update_expression loc x expr (fun x -> loc, Update x)
     | loc, Yield x -> id_loc this#yield loc x expr (fun x -> loc, Yield x)
@@ -1474,6 +1475,13 @@ class ['loc] mapper = object(this)
     let annot' = this#type_annotation annot in
     if expression' == expression && annot' == annot then expr
     else { expression = expression'; annot = annot' }
+
+  method const_assertion _loc (expr: ('loc, 'loc) Ast.Expression.ConstAssertion.t) =
+    let open Ast.Expression.ConstAssertion in
+    let { expression; } = expr in
+    let expression' = this#expression expression in
+    if expression' == expression then expr
+    else { expression = expression' }
 
   method unary_expression _loc (expr: ('loc, 'loc) Flow_ast.Expression.Unary.t) =
     let open Flow_ast.Expression.Unary in

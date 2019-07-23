@@ -103,6 +103,7 @@ module Eval(Env: EvalEnv) = struct
       | Ast.Expression.TaggedTemplate _
       | Ast.Expression.TemplateLiteral _
       | Ast.Expression.TypeCast _
+      | Ast.Expression.ConstAssertion _
       | Ast.Expression.Update _
       | Ast.Expression.Yield _
         ->
@@ -436,6 +437,8 @@ module Eval(Env: EvalEnv) = struct
           | _ -> Deps.top (Error.UnexpectedExpression (loc, Ast_utils.ExpressionSort.JSXElement))
         end
 
+      | loc, ConstAssertion _ ->
+        Deps.top (Error.UnexpectedExpression (loc, Ast_utils.ExpressionSort.ConstAssertion))
       | loc, Call _ ->
         Deps.top (Error.UnexpectedExpression (loc, Ast_utils.ExpressionSort.Call))
       | loc, Comprehension _ ->

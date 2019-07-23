@@ -160,6 +160,7 @@ class virtual ['M, 'T, 'N, 'U] mapper = object(this)
     | TaggedTemplate x -> TaggedTemplate (this#tagged_template x)
     | TemplateLiteral x -> TemplateLiteral (this#template_literal x)
     | TypeCast x -> TypeCast (this#type_cast x)
+    | ConstAssertion x -> ConstAssertion (this#const_assertion x)
     | Unary x -> Unary (this#unary_expression x)
     | Update x -> Update (this#update_expression x)
     | Yield x -> Yield (this#yield x)
@@ -1526,6 +1527,12 @@ class virtual ['M, 'T, 'N, 'U] mapper = object(this)
     let expression' = this#expression expression in
     let annot' = this#type_annotation annot in
     { expression = expression'; annot = annot' }
+
+  method const_assertion (expr: ('M, 'T) Ast.Expression.ConstAssertion.t) : ('N, 'U) Ast.Expression.ConstAssertion.t =
+    let open Ast.Expression.ConstAssertion in
+    let { expression; } = expr in
+    let expression' = this#expression expression in
+    { expression = expression' }
 
   method unary_expression (expr: ('M, 'T) Ast.Expression.Unary.t)
                               : ('N, 'U) Ast.Expression.Unary.t =

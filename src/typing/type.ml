@@ -521,6 +521,8 @@ module rec TypeTerm : sig
     (* exact ops *)
     | MakeExactT of reason * cont
 
+    | ConstAssertionT of reason * t
+
     (**
      * Module import handling
      *
@@ -2237,6 +2239,7 @@ end = struct
     | InvariantT reason -> reason
     | LookupT(reason, _, _, _, _) -> reason
     | MakeExactT (reason, _) -> reason
+    | ConstAssertionT (reason, _) -> reason
     | MapTypeT (_, reason, _, _) -> reason
     | MethodT (_,reason,_,_,_,_) -> reason
     | MixinT (reason, _) -> reason
@@ -2409,6 +2412,7 @@ end = struct
     | InvariantT reason -> InvariantT (f reason)
     | LookupT (reason, r2, ts, x, t) -> LookupT (f reason, r2, ts, x, t)
     | MakeExactT (reason, t) -> MakeExactT (f reason, t)
+    | ConstAssertionT (reason, t) -> ConstAssertionT (f reason, t)
     | MapTypeT (use_op, reason, kind, t) -> MapTypeT (use_op, f reason, kind, t)
     | MethodT (use_op, reason_call, reason_lookup, name, ft, tm) ->
         MethodT (use_op, f reason_call, reason_lookup, name, ft, tm)
@@ -2551,6 +2555,7 @@ end = struct
   | BecomeT (_, _)
   | GetValuesT (_, _)
   | MakeExactT (_, _)
+  | ConstAssertionT (_, _)
   | CJSRequireT (_, _, _)
   | ImportModuleNsT (_, _, _)
   | ImportDefaultT (_, _, _, _, _)
@@ -3273,6 +3278,7 @@ let string_of_use_ctor = function
   | InvariantT _ -> "InvariantT"
   | LookupT _ -> "LookupT"
   | MakeExactT _ -> "MakeExactT"
+  | ConstAssertionT _ -> "ConstAssertionT"
   | MapTypeT _ -> "MapTypeT"
   | MethodT _ -> "MethodT"
   | MixinT _ -> "MixinT"

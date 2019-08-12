@@ -1073,7 +1073,7 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
       rec_flow cx trace (result, u)
 
      | _, UseT (use_op, EvalT (t, TypeDestructorT (use_op', reason, d), id)) ->
-      let slingshot, result = mk_type_destructor cx ~trace use_op' reason t d id in
+      let slingshot, result = mk_type_destructor cx ~trace ~original_use_op:use_op use_op' reason t d id in
       if slingshot
         then rec_flow cx trace (result, ReposUseT (reason, false, use_op, l))
         else rec_flow cx trace (l, UseT (use_op, result))
@@ -1180,12 +1180,12 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
      * run into non-termination scenarios. *)
     | TypeDestructorTriggerT _, UseT (_, TypeDestructorTriggerT _) -> ()
 
-    | l, UseT (_, TypeDestructorTriggerT (use_op', reason, repos, d, tout)) ->
+    | l, UseT (original_use_op, TypeDestructorTriggerT (use_op', reason, repos, d, tout)) ->
       let l = match repos with
       | None -> l
       | Some (reason, use_desc) -> reposition_reason cx ~trace reason ~use_desc l
       in
-      eval_destructor cx ~trace use_op' reason l d tout
+      eval_destructor cx ~trace ~original_use_op use_op' reason l d tout
 
     | TypeDestructorTriggerT (use_op', reason, _, d, tout), UseT (use_op, AnnotT (r, t, use_desc)) ->
       let tout' = Tvar.mk_where cx reason (fun tout' ->
@@ -1198,7 +1198,7 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
       (* With the same "slingshot" trick used by AnnotT, hold the lower bound
        * at bay until result itself gets concretized, and then flow the lower
        * bound to that concrete type. *)
-      let t = Tvar.mk_where cx reason (fun t -> eval_destructor cx ~trace use_op' reason u d t) in
+      let t = Tvar.mk_where cx reason (fun t -> eval_destructor cx ~trace ~original_use_op:use_op use_op' reason u d t) in
       let use_desc = false in
       rec_flow cx trace (t, ReposUseT (reason, use_desc, use_op, tout))
 
@@ -1302,6 +1302,17 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
 
     | _, RefineT (reason, LatentP (fun_t, idx), tvar) ->
       flow cx (fun_t, CallLatentPredT (reason, true, idx, l, tvar))
+
+    | DefT (_, _, SingletonStrT message), GetErrorT (use_op, reason, args, tout) ->
+      rec_flow_t cx trace ~use_op (ErrorT (reason, message, args), tout);
+
+    | ErrorT (reason, message, args), _ ->
+      let args = Core_list.map ~f:(fun t -> reason_of_t t) args in
+      let use_op = match use_op_of_use_t u with
+        | Some use_op -> use_op
+        | None -> unknown_use
+      in
+      add_output cx ~trace (Error_message.EIncompatibleWithError (use_op, reason, message, args))
 
     (*************)
     (* Debugging *)
@@ -7083,6 +7094,7 @@ and empty_success flavor u =
   | _, ArrRestT _
   | _, CallElemT _
   | _, CallT _
+  | _, GetErrorT _
   | _, CJSRequireT _
   | _, ConcretizeTypeAppsT _
   | _, ConstructorT _
@@ -7244,6 +7256,7 @@ and any_propagated cx trace any u =
   | GetProtoT _
   | GetStaticsT _
   | GetValuesT _
+  | GetErrorT _
   | GuardT _
   | IdxUnMaybeifyT _
   | IdxUnwrap _
@@ -7450,6 +7463,7 @@ and any_propagated_use cx trace use_op any l =
   | DefT (_, _, InstanceT _)
   | DefT _
   | AnyT _
+  | ErrorT _
   | TypeDestructorTriggerT _ ->
       true
 
@@ -7576,7 +7590,7 @@ and eval_selector cx ?trace reason curr_t s tvar =
     | Default -> PredicateT (NotP VoidP, tvar)
   )
 
-and mk_type_destructor cx ~trace use_op reason t d id =
+and mk_type_destructor cx ~trace ?(original_use_op=unknown_use) use_op reason t d id =
   let evaluated = Context.evaluated cx in
   (* As an optimization, unwrap resolved tvars so that they are only evaluated
    * once to an annotation instead of a tvar that gets a bound on both sides. *)
@@ -7618,10 +7632,12 @@ and mk_type_destructor cx ~trace use_op reason t d id =
   | _, None ->
     true, Tvar.mk_where cx reason (fun tvar ->
       Context.set_evaluated cx (IMap.add id tvar evaluated);
-      eval_destructor cx ~trace use_op reason t d tvar;
+      eval_destructor cx ~trace ~original_use_op use_op reason t d tvar;
     )
 
-and eval_destructor cx ~trace use_op reason t d tout = match t with
+and eval_destructor cx ~trace ?(original_use_op=unknown_use) use_op reason t d tout =
+ignore original_use_op;
+match t with
 (* Specialize TypeAppTs before evaluating them so that we can handle special
    cases. Like the union case below. mk_typeapp_instance will return an AnnotT
    which will be fully resolved using the AnnotT case above. *)
@@ -7685,6 +7701,7 @@ and eval_destructor cx ~trace use_op reason t d tout = match t with
     let call = mk_functioncalltype reason None args tout in
     let call = {call with call_strict_arity = false} in
     CallT (use_op, reason, call)
+  | ErrorType args -> GetErrorT (use_op, reason, args, tout)
   | TypeMap tmap -> MapTypeT (use_op, reason, tmap, tout)
   | ReactElementPropsType -> ReactKitT (use_op, reason, React.GetProps tout)
   | ReactElementConfigType -> ReactKitT (use_op, reason, React.GetConfig tout)
@@ -7721,6 +7738,7 @@ and check_polarity cx ?trace polarity = function
   | DefT (_, _, CharSetT _)
     -> ()
   | ExistsT _
+  | ErrorT _
     -> ()
 
   | InternalT (OptionalChainVoidT _) -> ()
@@ -11087,7 +11105,8 @@ and reposition cx ?trace (loc: ALoc.t) ?desc ?annot_loc t =
           let _, id = open_tvar tvar in
           resolve_id cx trace ~use_op ~fully_resolved id t';
         ))
-    | Unresolved _ ->
+    | Unresolved bounds ->
+      ignore bounds;
       (* Try to re-use an already created repositioning tvar.
          See repos_cache.ml for details. *)
       match Repos_cache.find id reason !Cache.repos_cache with

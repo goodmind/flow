@@ -167,6 +167,7 @@ and utility =
   | ObjMapi of t * t
   | TupleMap of t * t
   | Call of t * t list
+  | ErrorType of t * t list
   | Class of t
   | Shape of t
   | Supertype of t
@@ -370,6 +371,7 @@ class ['A] comparator_ty = object(this)
     | ReactElementConfigType _ -> 19
     | ReactElementRefType _ -> 20
     | ReactConfigType _ -> 21
+    | ErrorType _ -> 22
 
   method tag_of_polarity _ = function
     | Positive -> 0
@@ -503,6 +505,7 @@ let string_of_utility_ctor = function
   | ReactElementConfigType _ -> "React$ElementConfig"
   | ReactElementRefType _ -> "React$ElementRef"
   | ReactConfigType _  -> "React$Config"
+  | ErrorType _ -> "$Error"
 
 let types_of_utility = function
   | Keys t -> Some [t]
@@ -527,3 +530,4 @@ let types_of_utility = function
   | ReactElementConfigType t -> Some [t]
   | ReactElementRefType t -> Some [t]
   | ReactConfigType (t1, t2) -> Some [t1; t2]
+  | ErrorType (t, ts) -> Some (t::ts)

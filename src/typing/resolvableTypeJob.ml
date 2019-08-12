@@ -221,6 +221,8 @@ and collect_of_type ?log_unresolved cx acc = function
   | InternalT (ReposUpperT (_, t)) ->
     collect_of_type ?log_unresolved cx acc t
 
+  | ErrorT (_, _, ts) -> collect_of_types ?log_unresolved cx acc ts
+
   | InternalT (OptionalChainVoidT _) -> acc
 
   | DefT (_, _, NumT _)
@@ -269,6 +271,7 @@ and collect_of_destructor ?log_unresolved cx acc = function
       end
   | RestType (_, t) -> collect_of_type ?log_unresolved cx acc t
   | ValuesType -> acc
+  | ErrorType ts -> collect_of_types ?log_unresolved cx acc ts
   | CallType ts -> collect_of_types ?log_unresolved cx acc ts
   | TypeMap tmap -> collect_of_type_map ?log_unresolved cx acc tmap
   | ReactConfigType default_props -> collect_of_type ?log_unresolved cx acc default_props
@@ -334,6 +337,8 @@ and collect_of_use ?log_unresolved cx acc = function
   let arg_types =
     Core_list.map ~f:(function Arg t | SpreadArg t -> t) fct.call_args_tlist in
   collect_of_types ?log_unresolved cx acc (arg_types @ [fct.call_tout])
+| GetErrorT (_, _, ts, t) ->
+  collect_of_types ?log_unresolved cx acc (ts @ [t])
 | GetPropT (_, _, _, t_out) ->
   collect_of_type ?log_unresolved cx acc t_out
 | _ -> acc

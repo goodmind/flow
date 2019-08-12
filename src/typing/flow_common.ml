@@ -42,7 +42,7 @@ val eval_selector : Context.t -> ?trace:Trace.t -> reason -> Type.t -> Type.sele
   val mk_instance: Context.t -> ?trace:Trace.t -> reason -> ?use_desc:bool -> Type.t -> Type.t
   val mk_typeof_annotation: Context.t -> ?trace:Trace.t -> reason -> ?use_desc:bool -> Type.t ->
     Type.t
-  val mk_type_destructor: Context.t -> trace:Trace.t -> use_op -> reason -> Type.t ->
+  val mk_type_destructor: Context.t -> trace:Trace.t -> ?original_use_op:Type.use_op -> use_op -> reason -> Type.t ->
     Type.destructor -> int -> bool * Type.t
   val reposition: Context.t -> ?trace:Trace.t -> ALoc.t -> ?desc:reason_desc -> ?annot_loc:ALoc.t ->
     Type.t -> Type.t

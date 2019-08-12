@@ -37,6 +37,7 @@ class ['a] t = object(self)
   | FunProtoCallT _
   | ObjProtoT _
   | NullProtoT _
+  | ErrorT _
     -> acc
 
   | CustomFunT (_, kind) -> self#custom_fun_kind cx acc kind
@@ -243,6 +244,7 @@ class ['a] t = object(self)
       let acc = self#list (self#object_kit_spread_operand cx) acc ts in
       self#opt (self#object_kit_spread_operand_slice cx) acc head_slice
   | RestType (_,t) -> self#type_ cx pole_TODO acc t
+  | ErrorType args
   | CallType args -> self#list (self#type_ cx pole_TODO) acc args
   | TypeMap map -> self#type_map cx acc map
 
@@ -565,6 +567,11 @@ class ['a] t = object(self)
 
   | DebugPrintT _ -> acc
   | DebugSleepT _ -> acc
+
+  | GetErrorT (_, _, ts, t) ->
+    let acc = self#type_ cx pole_TODO acc t in
+    let acc = self#list (self#type_ cx pole_TODO) acc ts in
+    acc
 
   | SentinelPropTestT (_, t, _, _, _, tout) ->
     let acc = self#type_ cx pole_TODO acc t in

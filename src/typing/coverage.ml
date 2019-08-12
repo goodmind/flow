@@ -197,6 +197,7 @@ class visitor = object (self)
     | OpaqueT _
     | ObjProtoT _
     | OptionalT _
+    | ErrorT _
         -> Kind.Checked, Taint.Untainted
 
     | DefT (_, t, ArrT _)

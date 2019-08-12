@@ -12,6 +12,7 @@ open Utils_js
 exception EDebugThrow of ALoc.t
 exception EMergeTimeout of float
 exception ECheckTimeout of float
+exception IncorrectReplacementList of int
 
 type invalid_char_set =
   | DuplicateChar of Char.t
@@ -23,6 +24,23 @@ module InvalidCharSetSet = Set.Make(struct
 end)
 
 type t = ALoc.t t'
+
+(* Friendly messages are created differently based on the specific error they come from, so
+   we collect the ingredients here and pass them to make_error_printable *)
+and 'loc friendly_message_recipe =
+  | IncompatibleUse of 'loc * 'loc upper_kind * 'loc Reason.virtual_reason * 'loc Reason.virtual_reason
+      * 'loc Type.virtual_use_op
+  | Speculation of 'loc * 'loc Type.virtual_use_op * ('loc Reason.virtual_reason * t) list
+  | Incompatible of 'loc Reason.virtual_reason * 'loc Reason.virtual_reason
+      * 'loc Type.virtual_use_op
+  | IncompatibleTrust of 'loc Reason.virtual_reason * 'loc Reason.virtual_reason
+      * 'loc Type.virtual_use_op
+  | PropMissing of 'loc * string option * 'loc Reason.virtual_reason * 'loc Type.virtual_use_op
+  | Normal of 'loc Errors.Friendly.message_feature list
+  | UseOp of 'loc * 'loc Errors.Friendly.message_feature list * 'loc Type.virtual_use_op
+  | PropPolarityMismatch of string option * ('loc Reason.virtual_reason * Polarity.t)
+      * ('loc Reason.virtual_reason * Polarity.t) * 'loc Type.virtual_use_op
+
 and 'loc t' =
   | EIncompatible of {
       lower: 'loc virtual_reason * lower_kind option;
@@ -256,6 +274,7 @@ and 'loc t' =
     value_reason: 'loc virtual_reason;
     object2_reason: 'loc virtual_reason;
   }
+  | EIncompatibleWithError of 'loc virtual_use_op * 'loc virtual_reason * string * 'loc virtual_reason list
 
 and spread_error_kind =
   | Indexer
@@ -664,6 +683,8 @@ let map_loc_of_error_message (f : 'a -> 'b) : 'a t' -> 'b t' =
       value_reason = map_reason value_reason;
       object2_reason = map_reason object2_reason;
     }
+  | EIncompatibleWithError (op, r, m, rs) ->
+    EIncompatibleWithError (map_use_op op, map_reason r, m, Core_list.map ~f:map_reason rs)
 
 let desc_of_reason r = Reason.desc_of_reason ~unwrap:(is_scalar_reason r) r
 
@@ -725,6 +746,7 @@ let util_use_op_of_msg nope util = function
 | EInvalidReactCreateClass { reason; use_op; tool } ->
   util use_op (fun use_op -> EInvalidReactCreateClass { reason; use_op; tool })
 | EFunctionCallExtraArg (rl, ru, n, op) -> util op (fun op -> EFunctionCallExtraArg (rl, ru, n, op))
+| EIncompatibleWithError (op, r, m, rs) -> util op (fun op -> EIncompatibleWithError (op, r, m, rs))
 | EDebugPrint (_, _)
 | EExportValueAsType (_, _)
 | EImportValueAsType (_, _)
@@ -970,6 +992,7 @@ let aloc_of_msg : t -> ALoc.t option = function
   | EIncompatibleDefs _
   | EInvalidObjectKit _
   | EIncompatibleWithShape _
+  | EIncompatibleWithError _
   | EInvalidCharSet _
   | EIncompatibleWithExact _
   | EUnionSpeculationFailed _
@@ -1038,21 +1061,40 @@ let mk_prop_message = Errors.Friendly.(function
   | Some prop -> [text "property "; code prop]
 )
 
-(* Friendly messages are created differently based on the specific error they come from, so
-   we collect the ingredients here and pass them to make_error_printable *)
-type 'loc friendly_message_recipe =
-  | IncompatibleUse of 'loc * 'loc upper_kind * 'loc Reason.virtual_reason * 'loc Reason.virtual_reason
-      * 'loc Type.virtual_use_op
-  | Speculation of 'loc * 'loc Type.virtual_use_op * ('loc Reason.virtual_reason * t) list
-  | Incompatible of 'loc Reason.virtual_reason * 'loc Reason.virtual_reason
-      * 'loc Type.virtual_use_op
-  | IncompatibleTrust of 'loc Reason.virtual_reason * 'loc Reason.virtual_reason
-      * 'loc Type.virtual_use_op
-  | PropMissing of 'loc * string option * 'loc Reason.virtual_reason * 'loc Type.virtual_use_op
-  | Normal of 'loc Errors.Friendly.message_feature list
-  | UseOp of 'loc * 'loc Errors.Friendly.message_feature list * 'loc Type.virtual_use_op
-  | PropPolarityMismatch of string option * ('loc Reason.virtual_reason * Polarity.t)
-      * ('loc Reason.virtual_reason * Polarity.t) * 'loc Type.virtual_use_op
+
+let replace_string (str: string) (replacement_list: 'loc virtual_reason list) : 'loc Errors.Friendly.message_feature list =
+  let text = Errors.Friendly.text in
+  let ref_reason = Errors.Friendly.ref in
+
+  let len = String.length str in
+  let res = ref [] in
+  let get_replacement = function
+    | x :: xs -> (x, xs)
+    | _ -> raise (IncorrectReplacementList (List.length replacement_list + 1))
+  in
+  let f (perc, ls) = function
+    | '%' ->
+      if perc then res := (!res) @ [text "%"];
+      (true, ls)
+    | 's' when perc ->
+      let (r, ls') = get_replacement ls in
+      res := (!res) @ [ref_reason r];
+      (false, ls')
+    | c ->
+      if perc then res := (!res) @ [text "%"];
+      res := (!res) @ [text (Char.escaped c)];
+      (false, ls)
+  in
+  let rec aux i acc =
+    if i < len then
+      aux (i + 1) (f acc str.[i])
+    else
+      let (perc, _) = acc in
+      if perc then res := (!res) @ [text "%"];
+      acc
+  in
+  ignore @@ aux 0 (false, replacement_list);
+  !(res)
 
 let friendly_message_of_msg : Loc.t t' -> Loc.t friendly_message_recipe =
   let text = Errors.Friendly.text in
@@ -1092,6 +1134,17 @@ let friendly_message_of_msg : Loc.t t' -> Loc.t friendly_message_recipe =
 
     | EDebugPrint (_, str) ->
       Normal [text str]
+
+    | EIncompatibleWithError (use_op, reason, message, replacement_list) -> (
+      try
+        UseOp (
+          loc_of_reason reason,
+          replace_string message replacement_list,
+          use_op
+        )
+      with IncorrectReplacementList n ->
+        Normal [text "idk "; text (string_of_int n)]
+    )
 
     | EExportValueAsType (_, export_name) ->
       Normal [

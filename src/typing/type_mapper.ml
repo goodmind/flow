@@ -83,6 +83,10 @@ class virtual ['a] t = object(self)
           else EvalT (t'', dt', id')
       | BoundT _ -> t
       | ExistsT _ -> t
+      | ErrorT (r, m, ts) ->
+          let ts' = ListUtils.ident_map (self#type_ cx map_cx) ts in
+          if ts' == ts then t
+          else ErrorT (r, m, ts')
       | ThisClassT (r, t') ->
           let t'' = self#type_ cx map_cx t' in
           if t'' == t' then t
@@ -400,6 +404,10 @@ class virtual ['a] t = object(self)
           if x' == x then t
           else RestType (options, x')
       | ValuesType -> t
+      | ErrorType args ->
+          let args' = ListUtils.ident_map (self#type_ cx map_cx) args in
+          if args' == args then t
+          else ErrorType args'
       | CallType args ->
           let args' = ListUtils.ident_map (self#type_ cx map_cx) args in
           if args' == args then t
@@ -967,6 +975,11 @@ class virtual ['a] t_with_uses = object(self)
           else IntersectionPreprocessKitT (r, ipt')
       | DebugPrintT _ -> t
       | DebugSleepT _ -> t
+      | GetErrorT (op, r, ts, t1) ->
+        let t1' = self#type_ cx map_cx t1 in
+        let ts' = ListUtils.ident_map (self#type_ cx map_cx) ts in
+        if t1' == t1 && ts' == ts then t
+        else GetErrorT (op, r, ts', t1')
       | SentinelPropTestT (r, t1, key, b, sentinel, t2) ->
           let t1' = self#type_ cx map_cx t1 in
           let t2' = self#type_ cx map_cx t2 in

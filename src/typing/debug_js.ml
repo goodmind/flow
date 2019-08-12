@@ -74,6 +74,7 @@ let string_of_destructor = function
   | RestType _ -> "Rest"
   | ValuesType -> "Values"
   | CallType _ -> "CallType"
+  | ErrorType _ -> "ErrorType"
   | TypeMap (TupleMap _) -> "TupleMap"
   | TypeMap (ObjectMap _) -> "ObjectMap"
   | TypeMap (ObjectMapi _) -> "ObjectMapi"
@@ -266,6 +267,7 @@ and _json_of_t_impl json_cx t = Hh_json.(
       "polarity", json_of_polarity json_cx polarity
     ]
 
+  | ErrorT _
   | ExistsT _ ->
     []
 
@@ -786,6 +788,7 @@ and _json_of_use_t_impl json_cx t = Hh_json.(
 
   | DebugPrintT _ -> []
   | DebugSleepT _ -> []
+  | GetErrorT _ -> []
 
   | MapTypeT (_, _, kind, t) -> [
       "kind", JSON_String (string_of_type_map kind);
@@ -942,7 +945,6 @@ and _json_of_use_t_impl json_cx t = Hh_json.(
       "selector", json_of_selector json_cx s;
       "t_out", _json_of_t json_cx t_out;
     ]
-
   | ModuleExportsAssignT (_, assign, t_out) -> [
       "assign", _json_of_t json_cx assign;
       "t_out", _json_of_t json_cx t_out;
@@ -1262,6 +1264,9 @@ and json_of_destructor_impl json_cx = Hh_json.(function
       "values", JSON_Bool true;
     ]
   | CallType args -> JSON_Object [
+      "args", JSON_Array (Core_list.map ~f:(_json_of_t json_cx) args);
+    ]
+  | ErrorType args -> JSON_Object [
       "args", JSON_Array (Core_list.map ~f:(_json_of_t json_cx) args);
     ]
   | TypeMap tmap -> json_of_type_map json_cx tmap
@@ -1841,6 +1846,7 @@ let rec dump_t_ (depth, tvars) cx t =
       id) t
   | ThisClassT (_, inst) -> p ~extra:(kid inst) t
   | BoundT (_, name, _) -> p ~extra:name t
+  | ErrorT _
   | ExistsT _ -> p t
   | DefT (_, trust, ObjT { props_tmap; _ }) -> p ~trust:(Some trust) t
       ~extra:(Properties.string_of_id props_tmap)
@@ -2192,6 +2198,13 @@ and dump_use_t_ (depth, tvars) cx t =
   | CopyTypeExportsT _ -> p t
   | DebugPrintT _ -> p t
   | DebugSleepT _ -> p t
+  | GetErrorT (use_op, _, ts, tout) -> p
+      ~extra:(spf "[%s] (%s) (%s)"
+        (String.concat "; " (Core_list.map ~f:kid ts))
+        (kid tout)
+        (string_of_use_op use_op)
+      )
+      t
   | ElemT _ -> p t
   | EqT (_, _, arg) -> p ~extra:(kid arg) t
   | ExportNamedT (_, _, tmap, _export_kind, arg) -> p t
@@ -2987,6 +3000,12 @@ let dump_error_message =
         (dump_reason cx key_reason)
         (dump_reason cx value_reason)
         (dump_reason cx object2_reason)
+    | EIncompatibleWithError (use_op, reason, message, _) ->
+        spf "EIncompatibleWithError (%s, %s, %s)"
+          (string_of_use_op use_op)
+          (dump_reason cx reason)
+          message
+
 
 module Verbose = struct
   let print_if_verbose_lazy cx trace

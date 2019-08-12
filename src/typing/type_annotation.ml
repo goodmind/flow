@@ -759,6 +759,16 @@ let rec convert cx tparams_map = Ast.Type.(function
     | _ ->
       error_type cx loc (Error_message.ETypeParamMinArity (loc, 1)) t_ast)
 
+  | "$Error" ->
+    (match convert_type_params () with
+    | msg::args, targs ->
+      let reason = mk_reason RErrorType loc in
+      reconstruct_ast
+        (EvalT (msg, TypeDestructorT (use_op reason, reason, ErrorType args), mk_id ()))
+        targs
+    | _ ->
+      error_type cx loc (Error_message.ETypeParamMinArity (loc, 1)) t_ast)
+
   | "$TupleMap" ->
     check_type_arg_arity cx loc t_ast targs 2 (fun () ->
       let t1, t2, targs = match convert_type_params () with

@@ -717,6 +717,7 @@ end = struct
 
     | NullProtoT _ -> return Ty.Null
 
+    | ErrorT _
     | DefT (_, _, CharSetT _) ->
       terr ~kind:UnsupportedTypeCtor (Some t)
 
@@ -1596,6 +1597,8 @@ end = struct
     | T.ValuesType -> return (Ty.Utility (Ty.Values ty))
     | T.ElementType t' ->
       type__ ~env t' >>| fun ty' -> Ty.Utility (Ty.ElementType (ty, ty'))
+    | T.ErrorType ts ->
+      mapM (type__ ~env) ts >>| fun tys -> Ty.Utility (Ty.ErrorType (ty, tys))
     | T.CallType ts ->
       mapM (type__ ~env) ts >>| fun tys -> Ty.Utility (Ty.Call (ty, tys))
     | T.TypeMap (T.ObjectMap t') ->

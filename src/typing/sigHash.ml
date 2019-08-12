@@ -81,6 +81,7 @@ type hash =
   | OpenPredH
   | CharSetH
   | ReposH
+  | ErrorH
   (* use types *)
   | BindH
   | CallH
@@ -97,6 +98,7 @@ type hash =
   | GetStaticsH
   | GetProtoH
   | SetProtoH
+  | GetErrorH
   | ReposLowerH
   | ReposUseH
   | ConstructorH
@@ -237,6 +239,7 @@ let hash_of_ctor = Type.(function
   | ThisTypeAppT _ -> ThisTypeAppH
   | TypeAppT _ -> TypeAppH
   | UnionT _ -> UnionH
+  | ErrorT _ -> ErrorH
 )
 
 let hash_of_use_ctor = Type.(function
@@ -318,6 +321,7 @@ let hash_of_use_ctor = Type.(function
   | IntersectionPreprocessKitT _ -> IntersectionPreprocessKitH
   | DebugPrintT _ -> DebugPrintH
   | DebugSleepT _ -> DebugSleepH
+  | GetErrorT _ -> GetErrorH
   | SentinelPropTestT _ -> SentinelPropTestH
   | IdxUnwrap _ -> IdxUnwrapH
   | IdxUnMaybeifyT _ -> IdxUnMaybeifyH

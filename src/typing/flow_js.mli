@@ -62,7 +62,7 @@ val visit_eval_id : Context.t -> int -> (Type.t -> unit) -> unit
 (* destructors *)
 exception Not_expect_bound of string
 
-val mk_type_destructor : Context.t -> trace:Trace.t -> Type.use_op -> Reason.t -> Type.t ->
+val mk_type_destructor : Context.t -> trace:Trace.t -> ?original_use_op:Type.use_op -> Type.use_op -> Reason.t -> Type.t ->
   Type.destructor -> int -> bool * Type.t
 
 (* ... *)

@@ -89,6 +89,7 @@ type 'loc virtual_reason_desc =
   | RFunctionBody
   | RFunctionCall of 'loc virtual_reason_desc
   | RFunctionCallType
+  | RErrorType
   | RFunctionUnusedArgument
   | RJSXFunctionCall of string
   | RJSXIdentifier of string * string
@@ -251,6 +252,7 @@ let rec map_desc_locs f = function
   | RFunctionType
   | RFunctionBody
   | RFunctionCallType
+  | RErrorType
   | RFunctionUnusedArgument
   | RJSXFunctionCall _
   | RJSXIdentifier _
@@ -606,6 +608,7 @@ let rec string_of_desc = function
   | RFunctionBody -> "function body"
   | RFunctionCall d -> spf "call of %s" (string_of_desc d)
   | RFunctionCallType -> "`$Call`"
+  | RErrorType -> "`$Error`"
   | RFunctionUnusedArgument -> "unused function argument"
   | RJSXFunctionCall raw_jsx -> spf "`%s(...)`" raw_jsx
   | RJSXIdentifier (_, name) -> spf "`%s`" name
@@ -1297,6 +1300,7 @@ let classification_of_reason r = match desc_of_reason ~unwrap:true r with
 | RFunctionBody
 | RFunctionCall _
 | RFunctionCallType
+| RErrorType
 | RFunctionUnusedArgument
 | RJSXFunctionCall _
 | RJSXIdentifier _

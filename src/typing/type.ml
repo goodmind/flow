@@ -192,6 +192,8 @@ module rec TypeTerm : sig
        enough to annotate, so we customize their behavior internally. *)
     | CustomFunT of reason * custom_fun_kind
 
+    | ErrorT of reason * string * t list
+
     (** Predicate types **)
 
     (* `OpenPredT (reason, base_t, m_pos, m_neg)` wraps around a base type
@@ -521,6 +523,8 @@ module rec TypeTerm : sig
 
     (* exact ops *)
     | MakeExactT of reason * cont
+
+    | GetErrorT of use_op * reason * t list * t
 
     (**
      * Module import handling
@@ -1081,6 +1085,7 @@ module rec TypeTerm : sig
   | SpreadType of Object.Spread.target * Object.Spread.operand list * Object.Spread.operand_slice option
   | RestType of Object.Rest.merge_mode * t
   | ValuesType
+  | ErrorType of t list
   | CallType of t list
   | TypeMap of type_map
   | ReactElementPropsType
@@ -2224,6 +2229,7 @@ end = struct
     | IntersectionT (reason, _) -> reason
     | MaybeT (reason, _) -> reason
     | OptionalT (reason, _) -> reason
+    | ErrorT (reason, _, _) -> reason
 
   and reason_of_defer_use_t = function
     | LatentPredT (reason, _)
@@ -2325,6 +2331,7 @@ end = struct
     | ReactPropsToOut (reason, _)
     | ReactInToProps (reason, _) -> reason
     | DestructuringT (reason, _, _, _) -> reason
+    | GetErrorT (_, reason, _, _) -> reason
 
   (* helper: we want the tvar id as well *)
   (* NOTE: uncalled for now, because ids are nondetermistic
@@ -2383,6 +2390,7 @@ end = struct
     | ThisClassT (reason, t) -> ThisClassT (f reason, t)
     | ThisTypeAppT (reason, t1, t2, t3) -> ThisTypeAppT (f reason, t1, t2, t3)
     | TypeAppT (reason, t1, t2, t3) -> TypeAppT (f reason, t1, t2, t3)
+    | ErrorT (reason, m, args) -> ErrorT (f reason, m, args)
 
   and mod_reason_of_defer_use_t f = function
     | LatentPredT (reason, p) -> LatentPredT (f reason, p)
@@ -2507,6 +2515,7 @@ end = struct
     | ReactPropsToOut (reason, t) -> ReactPropsToOut (f reason, t)
     | ReactInToProps (reason, t) -> ReactInToProps (f reason, t)
     | DestructuringT (reason, a, s, t) -> DestructuringT (f reason, a, s, t)
+    | GetErrorT (op, reason, ts, t) -> GetErrorT (op, f reason, ts, t)
 
   and mod_reason_of_opt_use_t f = function
   | OptCallT (use_op, reason, ft) -> OptCallT (use_op, reason, ft)
@@ -2566,6 +2575,7 @@ end = struct
   | ObjAssignToT (op, r, t1, t2, k) -> util op (fun op -> ObjAssignToT (op, r, t1, t2, k))
   | ObjAssignFromT (op, r, t1, t2, k) -> util op (fun op -> ObjAssignFromT (op, r, t1, t2, k))
   | MakeExactT (r, Lower (op, t)) -> util op (fun op -> MakeExactT (r, Lower (op, t)))
+  | GetErrorT (op, r, ts, t) -> util op (fun op -> GetErrorT (op, r, ts, t))
   | MakeExactT (_, _)
   | TestPropT (_, _, _, _)
   | CallElemT (_, _, _, _)
@@ -3201,6 +3211,7 @@ let string_of_ctor = function
   | IntersectionT _ -> "IntersectionT"
   | OptionalT _ -> "OptionalT"
   | MaybeT _ -> "MaybeT"
+  | ErrorT _ -> "ErrorT"
 
 let string_of_internal_use_op = function
   | CopyEnv -> "CopyEnv"
@@ -3376,6 +3387,7 @@ let string_of_use_ctor = function
   | ReactInToProps _ -> "ReactInToProps"
   | DestructuringT _ -> "DestructuringT"
   | ModuleExportsAssignT _ -> "ModuleExportsAssignT"
+  | GetErrorT _ -> "GetErrorT"
 
 let string_of_binary_test = function
   | InstanceofTest -> "instanceof"

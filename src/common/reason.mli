@@ -37,6 +37,7 @@ type 'loc virtual_reason_desc =
   | RFunctionBody
   | RFunctionCall of 'loc virtual_reason_desc
   | RFunctionCallType
+  | RErrorType
   | RFunctionUnusedArgument
   | RJSXFunctionCall of string
   | RJSXIdentifier of string * string

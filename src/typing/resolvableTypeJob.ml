@@ -211,6 +211,9 @@ and collect_of_type ?log_unresolved cx acc = function
   | ShapeT (t) ->
     collect_of_type ?log_unresolved cx acc t
 
+  | NegateT (_, t) ->
+    collect_of_type ?log_unresolved cx acc t
+
   | MatchingPropT (_, _, t) ->
     collect_of_type ?log_unresolved cx acc t
 

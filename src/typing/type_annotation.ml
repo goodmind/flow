@@ -643,6 +643,17 @@ let rec convert cx tparams_map = Ast.Type.(function
         targs
     )
 
+  (* $Negate<T> *)
+  | "$Negate" ->
+    check_type_arg_arity cx loc t_ast targs 1 (fun () ->
+      let ts, targs = convert_type_params () in
+      let t = List.hd ts in
+      let reason = mk_reason (RType "$Negate") loc in
+      reconstruct_ast
+        (NegateT (reason, t))
+        targs
+    )
+
   (* $Shape<T> matches the shape of T *)
   | "$Shape" ->
     check_type_arg_arity cx loc t_ast targs 1 (fun () ->

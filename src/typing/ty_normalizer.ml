@@ -663,6 +663,9 @@ end = struct
     | ShapeT t ->
       type__ ~env t >>| fun t ->
       Ty.Utility (Ty.Shape t)
+    | NegateT (_, t) ->
+      type__ ~env t >>| fun t ->
+      Ty.Utility (Ty.Negate t)
     | TypeDestructorTriggerT (_, r, _, _, _) ->
       let loc = Reason.def_aloc_of_reason r in
       return (mk_empty (Ty.EmptyTypeDestructorTriggerT loc))

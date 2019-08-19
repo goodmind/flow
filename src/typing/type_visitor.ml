@@ -68,6 +68,8 @@ class ['a] t = object(self)
 
   | ShapeT t -> self#type_ cx pole acc t
 
+  | NegateT (_, t) -> self#type_ cx pole acc t
+
   | MatchingPropT (_, _, t) -> self#type_ cx pole_TODO acc t
 
   | KeysT (_, t) -> self#type_ cx P.Positive acc t

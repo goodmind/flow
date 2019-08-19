@@ -2762,6 +2762,23 @@ let rec __flow cx ((l: Type.t), (u: Type.use_t)) trace =
     (* AnyT has every prop *)
     | AnyT _, HasOwnPropT _ -> ()
 
+    | NegateT (_, t), UseT (_, NegateT (_, t2)) ->
+      rec_flow_t cx trace (t, t2)
+
+    | l, UseT (use_op, NegateT (reason, t)) ->
+      let checked_trust = Context.trust_errors cx in
+      if TypeUtil.quick_subtype checked_trust l t then
+        rec_flow_t cx trace ~use_op (l, EmptyT.why reason |> with_trust bogus_trust)
+      else
+        rec_flow_t cx trace ~use_op (l, MixedT.why reason |> with_trust bogus_trust)
+
+    | NegateT (reason, t), UseT (use_op, u) ->
+      let checked_trust = Context.trust_errors cx in
+      if TypeUtil.quick_subtype checked_trust u t then
+        rec_flow_t cx trace ~use_op (MixedT.why reason |> with_trust bogus_trust, u)
+      else
+        rec_flow_t cx trace ~use_op (EmptyT.why reason |> with_trust bogus_trust, u)
+
     | DefT (_, _, ObjT { flags; props_tmap; dict_t; _ }), GetKeysT (reason_op, keys) ->
       begin match flags.sealed with
       | Sealed ->
@@ -7068,6 +7085,7 @@ and empty_success flavor u =
   | _, UseT (_, EvalT _)
   | _, UseT (_, DefT (_, _, TypeT _))
   | _, UseT (_, ShapeT _)
+  | _, UseT (_, NegateT _)
   | _, AssertArithmeticOperandT _
   | _, AssertBinaryInLHST _
   | _, AssertBinaryInRHST _
@@ -7186,6 +7204,7 @@ and any_propagated cx trace any u =
   | UseT (use_op, DefT (_, _, ClassT t)) (* mk_instance ~for_type:false *)
   | UseT (use_op, ExactT (_, t))
   | UseT (use_op, OpenPredT (_, t, _, _))
+  | UseT (use_op, NegateT (_, t))
   | UseT (use_op, ShapeT t) ->
       covariant_flow ~use_op t;
       true
@@ -7411,6 +7430,7 @@ and any_propagated_use cx trace use_op any l =
   | InternalT (OptionalChainVoidT _)
   | MatchingPropT _
   | ShapeT _
+  | NegateT _
   | OptionalT _
   | MaybeT _
   | DefT (_, _, PolyT _)
@@ -7804,6 +7824,9 @@ and check_polarity cx ?trace polarity = function
 
   | KeysT (_, t) ->
     check_polarity cx ?trace Polarity.Positive t
+
+  | NegateT (_, t) ->
+    check_polarity cx ?trace polarity t
 
   | ThisClassT _
   | ModuleT _

@@ -188,6 +188,7 @@ and utility =
   | Call of t * t list
   | Class of t
   | Shape of t
+  | Negate of t
   | Supertype of t
   | Subtype of t
   | Exists
@@ -409,6 +410,7 @@ class ['A] comparator_ty = object(this)
     | ReactElementConfigType _ -> 19
     | ReactElementRefType _ -> 20
     | ReactConfigType _ -> 21
+    | Negate _ -> 22
 
   method tag_of_polarity _ = function
     | Positive -> 0
@@ -535,6 +537,7 @@ let string_of_utility_ctor = function
   | Call _ -> "$Call"
   | Class _ -> "Class"
   | Shape _ -> "$Shape"
+  | Negate _ -> "$Negate"
   | Supertype _ -> "$Supertype"
   | Subtype _ -> "$Subtype"
   | Exists -> "*"
@@ -559,6 +562,7 @@ let types_of_utility = function
   | Call (t, ts) -> Some (t::ts)
   | Class t -> Some [t]
   | Shape t -> Some [t]
+  | Negate t -> Some [t]
   | Supertype t -> Some [t]
   | Subtype t -> Some [t]
   | Exists -> None

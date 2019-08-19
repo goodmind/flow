@@ -124,6 +124,10 @@ class virtual ['a] t = object(self)
           let t'' = self#type_ cx map_cx t' in
           if t'' == t' then t
           else ShapeT t''
+      | NegateT (r, t') ->
+          let t'' = self#type_ cx map_cx t' in
+          if t'' == t' then t
+          else NegateT (r, t'')
       | MatchingPropT (r, x, t') ->
           let t'' = self#type_ cx map_cx t' in
           if t'' == t' then t

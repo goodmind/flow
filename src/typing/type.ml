@@ -123,6 +123,8 @@ module rec TypeTerm : sig
     (* collects the keys of an object *)
     | KeysT of reason * t
 
+    | NegateT of reason * t
+
     (* annotations *)
     (** A type that annotates a storage location performs two functions:
 
@@ -2216,6 +2218,7 @@ end = struct
     | ReposT (reason, _) -> reason
     | InternalT (ReposUpperT (reason, _)) -> reason (* HUH? cf. mod_reason below *)
     | ShapeT (t) -> reason_of_t t
+    | NegateT (reason, _) -> reason
     | ThisClassT (reason, _) -> reason
     | ThisTypeAppT (reason, _, _, _) -> reason
     | TypeAppT (reason, _, _, _) -> reason
@@ -2380,6 +2383,7 @@ end = struct
     | ReposT (reason, t) -> ReposT (f reason, t)
     | InternalT (ReposUpperT (reason, t)) -> InternalT (ReposUpperT (reason, mod_reason_of_t f t))
     | ShapeT t -> ShapeT (mod_reason_of_t f t)
+    | NegateT (reason, t) -> NegateT (f reason, t)
     | ThisClassT (reason, t) -> ThisClassT (f reason, t)
     | ThisTypeAppT (reason, t1, t2, t3) -> ThisTypeAppT (f reason, t1, t2, t3)
     | TypeAppT (reason, t1, t2, t3) -> TypeAppT (f reason, t1, t2, t3)
@@ -2801,7 +2805,7 @@ end = struct
     | Trust.Qualifier trust1, Trust.Qualifier trust2 -> Trust.subtype_trust trust1 trust2
     | _ -> false
 
-  let quick_subtype trust_checked t1 t2 =
+  let rec quick_subtype trust_checked t1 t2 =
     let open Trust in
     match t1, t2 with
     | DefT (_, ltrust, NumT _), DefT (_, rtrust, NumT _)
@@ -2823,6 +2827,8 @@ end = struct
       (not trust_checked || trust_subtype_fixed ltrust rtrust) && number_literal_eq expected actual
     | DefT (_, ltrust, BoolT actual), DefT (_, rtrust, SingletonBoolT expected) ->
       (not trust_checked || trust_subtype_fixed ltrust rtrust) && boolean_literal_eq expected actual
+    | t1, NegateT (_, t2)
+      -> not (quick_subtype trust_checked t1 t2)
     | _ -> reasonless_eq t1 t2
 end
 
@@ -3194,6 +3200,7 @@ let string_of_ctor = function
   | ReposT _ -> "ReposT"
   | InternalT (ReposUpperT _) -> "ReposUpperT"
   | ShapeT _ -> "ShapeT"
+  | NegateT _ -> "NegateT"
   | ThisClassT _ -> "ThisClassT"
   | ThisTypeAppT _ -> "ThisTypeAppT"
   | TypeAppT _ -> "TypeAppT"

@@ -440,6 +440,7 @@ let rec extract_type cx this_t = match this_t with
   | OpenT _
   | OptionalT _
   | ShapeT _
+  | NegateT _
   | ThisClassT _
   | DefT (_, _, TypeT _)
     ->

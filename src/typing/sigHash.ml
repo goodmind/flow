@@ -72,6 +72,7 @@ type hash =
   | MergedH
   | ShapeH
   | KeysH
+  | NegateH
   | SingletonStrH
   | SingletonNumH
   | SingletonBoolH
@@ -237,6 +238,7 @@ let hash_of_ctor = Type.(function
   | OpenPredT _ -> OpenPredH
   | ReposT _ -> ReposH
   | ShapeT _ -> ShapeH
+  | NegateT _ -> NegateH
   | ThisClassT _ -> ThisClassH
   | ThisTypeAppT _ -> ThisTypeAppH
   | TypeAppT _ -> TypeAppH
